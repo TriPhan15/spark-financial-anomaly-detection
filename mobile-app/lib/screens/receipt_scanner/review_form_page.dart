@@ -9,6 +9,7 @@ import 'package:finance_ai_app/core/extensions/build_context_extension.dart';
 import 'package:finance_ai_app/core/theme/app_theme.dart';
 import 'package:finance_ai_app/models/receipt_item_model.dart';
 import 'package:finance_ai_app/models/transaction_model.dart';
+import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/remote_api_helper.dart';
 import 'package:finance_ai_app/services/session_service.dart';
 import 'package:finance_ai_app/services/sqflite_helper.dart';
@@ -166,6 +167,83 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
       setState(() => _isSaving = false);
       _showSnack('Lưu thất bại: $e');
     }
+  }
+
+  Future<void> _checkAnomalyAndSave() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
+    final amount = _donutTotal > 0 ? _donutTotal : _receipt.grandTotal;
+    DateTime occurredAt;
+    try {
+      occurredAt = DateFormat(
+        'dd/MM/yyyy HH:mm',
+      ).parse(_dateController.text.trim());
+    } catch (_) {
+      occurredAt = DateTime.now();
+    }
+
+    final result = await AnomalyCheckService.check(
+      amount: amount,
+      occurredAt: occurredAt,
+      category: _selectedCategory,
+    );
+
+    if (mounted) setState(() => _isSaving = false);
+    if (!mounted) return;
+
+    if (result?.isAnomaly == true) {
+      final shouldSave = await _showAnomalyWarningDialog(result!, amount);
+      if (shouldSave && mounted) await _saveToDatabase();
+      return;
+    }
+    await _saveToDatabase();
+  }
+
+  Future<bool> _showAnomalyWarningDialog(
+    AnomalyResult result,
+    double amount,
+  ) async {
+    final colors = Theme.of(context).colorScheme;
+    final formatter = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: 'đ',
+      decimalDigits: 0,
+    );
+    final risk = (result.riskScore * 100).toStringAsFixed(1);
+    final threshold = (result.threshold * 100).toStringAsFixed(1);
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded, color: colors.error, size: 32),
+        title: Text(
+          'Chi tiêu bất thường so với thói quen',
+          style: TextStyle(color: colors.error),
+        ),
+        content: Text(
+          '${formatter.format(amount)}\n'
+          '${result.explanation.isNotEmpty ? '${result.explanation}\n' : ''}'
+          'Điểm rủi ro: $risk% (ngưỡng cảnh báo $threshold%)\n\n'
+          'Bạn có muốn tiếp tục lưu không?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.error,
+              foregroundColor: colors.onError,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Vẫn lưu'),
+          ),
+        ],
+      ),
+    );
+    return shouldSave ?? false;
   }
 
   Future<void> _pickCategory() async {
@@ -428,7 +506,7 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: _isSaving ? null : _saveToDatabase,
+              onPressed: _isSaving ? null : _checkAnomalyAndSave,
               // While saving the button is disabled, so its background is the disabled grey: the spinner takes the
               // primary colour to show on it.
               child: _isSaving
