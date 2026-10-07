@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DonutPay monorepo: kiến trúc hệ thống",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "product-path",
+        "label": "Luồng sản phẩm",
+        "focus": [
+          "app",
+          "ocr",
+          "core",
+          "redis",
+          "db"
+        ],
+        "note": "App quét hóa đơn bằng DONUT, lưu giao dịch qua Core Backend vào PostgreSQL."
+      },
+      {
+        "id": "bigdata-training",
+        "label": "Big Data: huấn luyện",
+        "focus": [
+          "datasets",
+          "hdfs",
+          "spark",
+          "fraudapi"
+        ],
+        "note": "Dữ liệu lên HDFS, Spark tính feature và huấn luyện, xuất model cho API."
+      },
+      {
+        "id": "anomaly-warning",
+        "label": "Cảnh báo bất thường",
+        "focus": [
+          "app",
+          "core",
+          "fraudapi"
+        ],
+        "note": "App lấy lịch sử từ Core Backend rồi gọi Model B trước khi lưu hóa đơn."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "mobile-app",
+      "sublabel": "Flutter + Dio",
+      "pos": [
+        40,
+        270
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "review_form_page"
+    },
+    {
+      "id": "ocr",
+      "type": "backend",
+      "label": "ai-service",
+      "sublabel": "FastAPI DONUT :8000",
+      "pos": [
+        280,
+        100
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "OCR hóa đơn"
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "core-backend",
+      "sublabel": "Spring Boot :8080",
+      "pos": [
+        520,
+        270
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "JWT"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache thống kê",
+      "pos": [
+        520,
+        100
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "finance_db :5432",
+      "pos": [
+        780,
+        270
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "fraudapi",
+      "type": "backend",
+      "label": "BigData API",
+      "sublabel": "FastAPI :8001",
+      "pos": [
+        280,
+        440
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "Model A + B"
+    },
+    {
+      "id": "spark",
+      "type": "cloud",
+      "label": "Spark cluster",
+      "sublabel": "master + worker",
+      "pos": [
+        520,
+        440
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "MLlib"
+    },
+    {
+      "id": "hdfs",
+      "type": "database",
+      "label": "HDFS",
+      "sublabel": "namenode + datanode",
+      "pos": [
+        780,
+        440
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "datasets",
+      "type": "external",
+      "label": "Kaggle datasets",
+      "sublabel": "Sparkov + creditcard",
+      "pos": [
+        1020,
+        440
+      ],
+      "size": [
+        150,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker-compose.yml (production)",
+      "wraps": [
+        "ocr",
+        "core",
+        "redis",
+        "db"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "BigData/docker-compose.bigdata.yml",
+      "wraps": [
+        "fraudapi",
+        "spark",
+        "hdfs"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "app-core",
+      "from": "app",
+      "to": "core",
+      "label": "REST /api",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-ocr",
+      "from": "app",
+      "to": "ocr",
+      "label": "ảnh hóa đơn"
+    },
+    {
+      "id": "core-redis",
+      "from": "core",
+      "to": "redis",
+      "label": "cache"
+    },
+    {
+      "id": "core-db",
+      "from": "core",
+      "to": "db",
+      "label": "JPA",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-anomaly",
+      "from": "app",
+      "to": "fraudapi",
+      "label": "/v2/predict-anomaly",
+      "variant": "emphasis"
+    },
+    {
+      "id": "datasets-hdfs",
+      "from": "datasets",
+      "to": "hdfs",
+      "label": "dfs -put"
+    },
+    {
+      "id": "hdfs-spark",
+      "from": "hdfs",
+      "to": "spark",
+      "label": "hdfs://"
+    },
+    {
+      "id": "spark-api",
+      "from": "spark",
+      "to": "fraudapi",
+      "label": "PipelineModel",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Sản phẩm",
+      "items": [
+        "Flutter quét hóa đơn qua ai-service (DONUT)",
+        "core-backend lưu giao dịch vào PostgreSQL, Redis chỉ là cache",
+        "App lấy lịch sử giao dịch qua GET /api/transactions/mine"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Big Data",
+      "items": [
+        "HDFS giữ creditcard.csv và Sparkov (1,85 triệu dòng)",
+        "Spark tính 7 feature hành vi bằng Window functions",
+        "Model A: benchmark Kaggle; Model B: dùng trong app"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Cảnh báo trên app",
+      "items": [
+        "App gửi hóa đơn + 100 giao dịch gần nhất",
+        "API tính lại feature giống Spark rồi chấm điểm",
+        "Lỗi hoặc timeout 3 giây thì vẫn lưu bình thường"
+      ]
+    }
+  ]
+}
