@@ -1,0 +1,36 @@
+{
+  "modelVersion": "behavior-gbt-2026-10-07",
+  "algorithm": "gbt",
+  "featureColumns": [
+    "hour",
+    "day_of_week",
+    "category_idx",
+    "amt_ratio_user",
+    "amt_ratio_user_cat",
+    "txn_count_24h",
+    "secs_since_prev"
+  ],
+  "threshold": 0.961,
+  "historyWindow": 100,
+  "minHistory": 5,
+  "categories": [
+    "entertainment",
+    "food_dining",
+    "gas_transport",
+    "grocery_net",
+    "grocery_pos",
+    "health_fitness",
+    "home",
+    "kids_pets",
+    "misc_net",
+    "misc_pos",
+    "personal_care",
+    "shopping_net",
+    "shopping_pos",
+    "travel"
+  ],
+  "dataset": "Sparkov credit card transactions (Kaggle kartik2112/fraud-detection)",
+  "trainedAt": "2026-10-07T12:45:25+00:00",
+  "sparkVersion": "4.0.1",
+  "seed": 42
+}

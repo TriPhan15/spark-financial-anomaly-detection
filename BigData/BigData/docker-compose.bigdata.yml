@@ -1,0 +1,64 @@
+# Coursework Big Data stack, separate from the production docker-compose.yml at the repo root.
+#   HDFS  : namenode + datanode (single node, replication 1)  UI http://localhost:9870
+#   Spark : standalone master + worker                         UI http://localhost:8080
+#   API   : FastAPI serving Model A (/predict-fraud) and Model B (/v2/predict-anomaly) on :8001
+# This folder is bind-mounted at /workspace in the Spark containers so jobs can read the code and
+# write models and artifacts back to the host.
+services:
+  namenode:
+    image: apache/hadoop:3.4.1
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports:
+      - "9870:9870"
+    env_file: ./hadoop.env
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-hadoop/dfs/name"
+    volumes:
+      - ./data:/staging/sparkov:ro
+      - ./creditcard.csv:/staging/creditcard/creditcard.csv:ro
+
+  datanode:
+    image: apache/hadoop:3.4.1
+    hostname: datanode
+    command: ["hdfs", "datanode"]
+    env_file: ./hadoop.env
+    depends_on:
+      - namenode
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: docker/spark.Dockerfile
+    image: bigdata-spark:4.0.1
+    hostname: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    ports:
+      - "8080:8080"
+      - "4040:4040"
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+    volumes:
+      - .:/workspace
+
+  spark-worker:
+    image: bigdata-spark:4.0.1
+    hostname: spark-worker
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_MEMORY: "3g"
+      SPARK_WORKER_CORES: "4"
+    volumes:
+      - .:/workspace
+    depends_on:
+      - spark-master
+
+  fraud-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bigdata-fraud-api:latest
+    ports:
+      - "8001:8001"
+    profiles: ["api"]
