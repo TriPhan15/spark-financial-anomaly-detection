@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+creditcard.csv
+artifacts/
+.git/
+data/
+tmp_smoke/
+*.log
+docker/
+*.ipynb
+scripts/

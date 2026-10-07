@@ -1,0 +1,8 @@
+Full instructions: README.md
+
+Start HDFS + Spark:   docker compose -f docker-compose.bigdata.yml up -d --build
+Load data to HDFS:    bash scripts/hdfs_load.sh
+Train Model B / A:    bash scripts/train_on_cluster.sh behavior   |   bash scripts/train_on_cluster.sh creditcard
+Start API (:8001):    docker compose -f docker-compose.bigdata.yml --profile api up -d --build fraud-api
+End-to-end check:     python scripts/e2e_check.py --base-url http://127.0.0.1:8001
+(Git Bash on Windows: prefix the bash scripts with MSYS_NO_PATHCONV=1)

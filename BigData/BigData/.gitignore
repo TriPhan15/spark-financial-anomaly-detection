@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+creditcard.csv
+**/*.crc
+**/_SUCCESS
+# Raw Kaggle CSVs only; Spark model folders also contain data/ subfolders that must be committed.
+/data/
+tmp_smoke/
+*.log
+# Hadoop settings, no secrets (the repo root ignores *.env).
+!hadoop.env
