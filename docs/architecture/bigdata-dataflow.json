@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Big Data: từ dataset đến cảnh báo trên app",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "model-b",
+        "label": "Model B (dùng trong app)",
+        "focus": [
+          "sparkov",
+          "hdfs",
+          "features",
+          "modelb",
+          "api",
+          "app"
+        ],
+        "note": "Sparkov lên HDFS, Spark tính feature hành vi, model được API dùng để cảnh báo trên app."
+      },
+      {
+        "id": "model-a",
+        "label": "Model A (benchmark)",
+        "focus": [
+          "creditcard",
+          "hdfs",
+          "traina",
+          "modela"
+        ],
+        "note": "Kaggle creditcard chỉ dùng để đánh giá kỹ thuật và thí nghiệm điền 0 cho V1..V28."
+      }
+    ],
+    "viewBox": [
+      1068,
+      520
+    ]
+  },
+  "stages": [
+    {
+      "label": "Nguồn"
+    },
+    {
+      "label": "Lưu trữ"
+    },
+    {
+      "label": "Xử lý Spark"
+    },
+    {
+      "label": "Model + API"
+    },
+    {
+      "label": "Ứng dụng"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sparkov",
+      "type": "external",
+      "label": "Sparkov",
+      "sublabel": "1,85M dòng",
+      "stage": 0,
+      "row": 0,
+      "tag": "CSV"
+    },
+    {
+      "id": "creditcard",
+      "type": "external",
+      "label": "Kaggle CC",
+      "sublabel": "284K dòng",
+      "stage": 0,
+      "row": 2,
+      "tag": "CSV"
+    },
+    {
+      "id": "hdfs",
+      "type": "database",
+      "label": "HDFS",
+      "sublabel": "2 node, 622 MB",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "features",
+      "type": "backend",
+      "label": "Spark job B",
+      "sublabel": "train_behavior.py",
+      "stage": 2,
+      "row": 0,
+      "tag": "7 feature"
+    },
+    {
+      "id": "traina",
+      "type": "backend",
+      "label": "Spark job A",
+      "sublabel": "train_pipeline.py",
+      "stage": 2,
+      "row": 2,
+      "tag": "ablation"
+    },
+    {
+      "id": "modelb",
+      "type": "database",
+      "label": "Model B",
+      "sublabel": "behavior_model",
+      "stage": 3,
+      "row": 0
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI",
+      "sublabel": "/v2 anomaly",
+      "stage": 3,
+      "row": 1,
+      "tag": "cùng công thức"
+    },
+    {
+      "id": "modela",
+      "type": "database",
+      "label": "Model A",
+      "sublabel": "random_forest_model",
+      "stage": 3,
+      "row": 2
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "Flutter app",
+      "sublabel": "dialog",
+      "stage": 4,
+      "row": 1,
+      "tag": "fail-open 3s"
+    }
+  ],
+  "flows": [
+    {
+      "id": "put-sparkov",
+      "from": "sparkov",
+      "to": "hdfs",
+      "label": "dfs -put",
+      "variant": "emphasis"
+    },
+    {
+      "id": "put-creditcard",
+      "from": "creditcard",
+      "to": "hdfs",
+      "label": "dfs -put"
+    },
+    {
+      "id": "read-sparkov",
+      "from": "hdfs",
+      "to": "features",
+      "label": "hdfs:// đọc",
+      "variant": "emphasis"
+    },
+    {
+      "id": "read-creditcard",
+      "from": "hdfs",
+      "to": "traina",
+      "label": "hdfs:// đọc"
+    },
+    {
+      "id": "save-b",
+      "from": "features",
+      "to": "modelb",
+      "label": "save",
+      "variant": "emphasis"
+    },
+    {
+      "id": "save-a",
+      "from": "traina",
+      "to": "modela",
+      "label": "save",
+      "variant": "dashed"
+    },
+    {
+      "id": "load-b",
+      "from": "modelb",
+      "to": "api",
+      "label": "load",
+      "variant": "emphasis",
+      "labelDy": 24
+    },
+    {
+      "id": "score",
+      "from": "api",
+      "to": "app",
+      "label": "riskScore + lý do",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Huấn luyện (Spark trên HDFS)",
+      "items": [
+        "Window theo cc_num, 100 giao dịch trước, chỉ lấy trước thời điểm hiện tại",
+        "Chia theo thời gian: train, validation (chọn ngưỡng), test",
+        "Class weights xử lý mất cân bằng 0,5% gian lận"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Phục vụ trên app",
+      "items": [
+        "App gửi hóa đơn + lịch sử, API tính 7 feature giống Spark",
+        "Dưới 5 giao dịch lịch sử: không chấm điểm (cold start)",
+        "e2e_check.py so feature và xác suất API với Spark"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Model A",
+      "items": [
+        "Benchmark trên 30 feature ngân hàng",
+        "Thí nghiệm V1..V28 = 0 chứng minh không dùng được cho hóa đơn"
+      ]
+    }
+  ]
+}
