@@ -1,0 +1,5 @@
+# Read by bash and by Hadoop inside Linux containers: a CR at the end of a line breaks them.
+*.sh text eol=lf
+hadoop.env text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
