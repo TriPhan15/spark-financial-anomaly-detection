@@ -2,7 +2,7 @@
 
 - Ngày: 2026-10-06
 - Phạm vi: `BigData/BigData/` (Spark + FastAPI), `mobile-app/lib/screens/receipt_scanner/review_form_page.dart`, tài liệu kiến trúc (archify)
-- Trạng thái: chờ review
+- Trạng thái: đã triển khai (2026-10-07); bổ sung mục 16 ngày 2026-10-08
 
 ## 1. Bối cảnh và vấn đề
 
@@ -28,6 +28,7 @@ Tiêu chí thành công:
 5. App gọi API v2 với dữ liệu thật của user, hiện dialog cảnh báo kèm giải thích khi model kết luận bất thường; mọi lỗi đều fail-open (vẫn lưu bình thường).
 6. Có thí nghiệm số liệu chứng minh Model A không dùng được cho hóa đơn (zero hóa `V1..V28` trên các dòng fraud của tập test và đo Recall).
 7. Có sơ đồ kiến trúc toàn monorepo (archify) làm tài liệu tra cứu.
+8. App có giao diện trực quan hóa các giao dịch nghi vấn (form đăng ký cam kết mục này): danh sách giao dịch bị gắn cờ kèm điểm rủi ro và lý do, biểu đồ theo danh mục, lối vào từ tab AI và banner ở Trang chủ (mục 16).
 
 Ngoài phạm vi: sửa core-backend (Spring Boot), xác thực (auth) cho BigData API, triển khai BigData lên VPS production, retrain online.
 
@@ -159,13 +160,13 @@ Response:
 
 File mới `mobile-app/lib/services/anomaly_check_service.dart`:
 
-- `AnomalyCheckService.check({amount, occurredAt, category})` lấy lịch sử bằng `RemoteApiHelper.instance.getTransactions()`, giữ giao dịch chi tiêu (`isExpense`), map sang `{amount, occurredAt, category}`, gọi `FRAUD_API_URL` (`String.fromEnvironment`) bằng Dio, timeout 3 giây.
+- `AnomalyCheckService.check({amount, occurredAt, category})` lấy lịch sử bằng `RemoteApiHelper.instance.fetchTransactions()` (`GET /api/transactions/mine`), giữ giao dịch chi tiêu (`isExpense`), map sang `{amount, occurredAt, category}`, gọi `FRAUD_API_URL` (`String.fromEnvironment`) bằng Dio, timeout 3 giây.
 - Trả về `AnomalyResult?`; `null` cho mọi trường hợp không chấm được: chưa cấu hình URL, không ở chế độ full, `scored: false`, lỗi mạng, timeout, response sai định dạng.
-- Hàm thuần `buildAnomalyRequest(...)` và `AnomalyResult.fromJson(...)` tách riêng để unit test.
+- `AnomalyResult.fromJson(...)` chỉ chấp nhận response có `scored == true` và đúng kiểu.
 
 `review_form_page.dart`:
 
-- `_checkFraudAndSave` gọi service. Có `AnomalyResult` với `isAnomaly == true` thì hiện dialog (tiêu đề "Chi tiêu bất thường so với thói quen", số tiền, điểm rủi ro, câu `explanation`, nút "Hủy" / "Vẫn lưu"); còn lại lưu ngay.
+- `_checkAnomalyAndSave` gọi service. Có `AnomalyResult` với `isAnomaly == true` thì hiện dialog (tiêu đề "Chi tiêu bất thường so với thói quen", số tiền, điểm rủi ro, câu `explanation`, nút "Hủy" / "Vẫn lưu"); còn lại lưu ngay.
 - Xóa `_fraudFeaturesFromScan` (contract Model A không còn dùng trên app) và toàn bộ comment marker `/// bigdata`.
 - Ngày giờ giao dịch lấy từ `_dateController` theo định dạng `dd/MM/yyyy HH:mm`, giống `_saveToDatabase`, để feature thời gian đúng với ngày trên hóa đơn.
 
@@ -180,19 +181,19 @@ File mới `mobile-app/lib/services/anomaly_check_service.dart`:
 | `isAnomaly: false` | Lưu bình thường |
 | `isAnomaly: true` | Dialog; "Vẫn lưu" thì lưu, "Hủy" thì ở lại form |
 | Model B chưa load ở server | 503; app xử lý như lỗi mạng |
+| Màn hình giao dịch nghi vấn: API lỗi hoặc timeout | Hiện "Chưa kiểm tra được", có nút thử lại; không crash |
+| Màn hình giao dịch nghi vấn: dưới 5 giao dịch | Hiện "Cần ít nhất 5 giao dịch để phân tích thói quen" |
+| Banner Trang chủ: API lỗi hoặc không có cờ | Ẩn banner |
 
 ## 12. Kiểm thử
 
-Python (`pytest`):
+Theo yêu cầu của người dùng (2026-10-07): **không viết unit test**, chỉ kiểm thử end-to-end trên hệ thống chạy thật.
 
-- `test_behavior_features.py`: unit test hàm Python, gồm biên cửa sổ 24h, cold start đúng 4 và 5 giao dịch, lịch sử có ngày tương lai bị loại, cắt còn 100, category chưa có lịch sử, ánh xạ keyword có dấu và không dấu.
-- **Parity test** (`test_feature_parity.py`, đánh dấu `spark`): fixture khoảng 50 giao dịch của 3 user, tính bằng Spark local và bằng Python, so từng feature với sai số ≤ 1e-9.
-- `test_main.py`: validation request v2, `scored: false`, threshold dùng từ metadata, 503 khi model chưa load (stub engine). Giữ các test hiện có của Model A.
-- Smoke test với model thật (đánh dấu `slow`): một request v2 trả về trong dưới 3 giây sau warm-up.
-
-Flutter (`flutter test`):
-
-- `test/services/anomaly_check_service_test.dart`: `buildAnomalyRequest` (lọc chi tiêu, định dạng ngày), `AnomalyResult.fromJson` (thiếu trường, sai kiểu, `scored: false`).
+- `scripts/e2e_check.py` gọi API đang chạy: health, validation 422, cold start, lịch sử sau ngày hóa đơn bị bỏ qua, ca bình thường, ca bất thường có giải thích, độ trễ dưới 3 giây, ánh xạ danh mục tiếng Việt, Model A trên dòng gian lận thật của Kaggle.
+- **Parity replay** (thay cho parity test): job Spark xuất 30 giao dịch test (15 gian lận, 15 bình thường) kèm lịch sử thô, feature và xác suất; script gửi lại qua API và yêu cầu feature và xác suất khớp (sai số ≤ 1e-6).
+- `scan-history` (mục 16): điểm của từng giao dịch trong kết quả batch phải bằng điểm khi gọi `/v2/predict-anomaly` cho riêng giao dịch đó với lịch sử trước nó.
+- Flutter: `flutter analyze` không lỗi trên các file thay đổi; kiểm tra bằng tay trên app với tài khoản demo đã seed (mục 16).
+- Giữ các test cũ của Model A trong `test_main.py`.
 
 ## 13. Tài liệu kiến trúc (archify)
 
@@ -205,7 +206,7 @@ Một sơ đồ kiến trúc HTML toàn monorepo (mobile-app, core-backend, ai-s
 | CLO1 Tính ứng dụng (1,0) | Cảnh báo thật trên app, dùng feature app có; thí nghiệm zero-PCA chứng minh vì sao cần Model B |
 | CLO2 Lưu trữ và xử lý (2,0) | HDFS Docker thật; Spark Window functions trên 1,85 triệu dòng; class weights; EDA |
 | CLO3 Mô hình/công nghệ (2,5) | Model A + Model B; so sánh RF và GBT; split theo thời gian; chọn threshold trên validation; đủ metric |
-| CLO3 Trực quan hóa/ứng dụng (2,5) | Biểu đồ notebook; API v2 + Swagger; dialog có giải thích trên app; sơ đồ kiến trúc |
+| CLO3 Trực quan hóa/ứng dụng (2,5) | Biểu đồ notebook; API v2 + Swagger; dialog có giải thích lúc lưu; màn hình "Giao dịch nghi vấn" có biểu đồ và danh sách, banner Trang chủ; sơ đồ kiến trúc |
 | CLO4 Báo cáo (1,0) | Spec này, README, metrics JSON, giới hạn nêu rõ (dữ liệu mô phỏng, HDFS 1 node) |
 | CLO5 Làm việc nhóm (1,0) | Ngoài phạm vi code; báo cáo cần phụ lục phân công |
 
@@ -215,3 +216,66 @@ Một sơ đồ kiến trúc HTML toàn monorepo (mobile-app, core-backend, ai-s
 - **Metric Model B có thể thấp** do chỉ dùng 7 feature hành vi. Kết quả thật sẽ được báo cáo; nếu thấp thì phân tích nguyên nhân thay vì thêm feature app không có.
 - **Lệch phân phối Sparkov và người dùng Việt Nam** (giờ giấc, tần suất). Nêu trong phần giới hạn; feature tỉ lệ giảm bớt ảnh hưởng của đơn vị tiền tệ nhưng không loại bỏ hoàn toàn khác biệt hành vi.
 - **Hóa đơn quét lại ngày cũ:** server chỉ dùng lịch sử trước `occurredAt`, nên không rò rỉ tương lai.
+
+## 16. Bổ sung 2026-10-08: giao diện trực quan hóa giao dịch nghi vấn
+
+Form đăng ký cam kết "API phục vụ dự đoán và Giao diện trực quan hóa các giao dịch nghi vấn được tích hợp trực tiếp dưới dạng tính năng Cảnh báo trên ứng dụng di động". Popup lúc lưu (mục 10) chưa đủ, vì chấm xong là bỏ, người dùng không xem lại được.
+
+### 16.1 Cách làm: quét lại khi mở, không lưu điểm
+
+Không sửa core-backend, không đổi schema PostgreSQL. Khi người dùng mở màn hình, app gửi toàn bộ giao dịch chi tiêu của họ lên BigData API; API chấm từng giao dịch dựa trên lịch sử trước nó và trả về các giao dịch bị gắn cờ.
+
+Lý do chọn (so với lưu điểm vào core-backend lúc tạo giao dịch):
+
+- Kết quả luôn khớp model hiện tại; retrain là tự cập nhật, không có điểm cũ lệch model.
+- Chấm được cả giao dịch cũ và giao dịch nhập tay, không chỉ hóa đơn quét sau khi có tính năng.
+- Không chạm Spring Boot và PostgreSQL production.
+
+Lưu điểm vào core-backend (kèm `modelVersion`) là hướng phát triển khi cần lưu vết "đã cảnh báo lúc nào"; ghi trong báo cáo.
+
+### 16.2 API `POST /v2/scan-history`
+
+```
+Request:
+{"transactions": [{"id": "123", "amount": 45000, "occurredAt": "2026-10-05T12:10:00", "category": "Ăn uống"}, ...]}
+
+Response:
+{
+  "modelVersion": "behavior-gbt-2026-10-07",
+  "threshold": 0.961,
+  "scannedCount": 45,
+  "scoredCount": 40,
+  "flaggedCount": 2,
+  "flaggedByCategory": {"Mua sắm": 1, "Ăn uống": 1},
+  "flagged": [{"id": "123", "amount": 1200000, "occurredAt": "...", "category": "Mua sắm",
+               "riskScore": 0.98, "explanation": "Số tiền gấp 11,1 lần mức chi trung bình của bạn."}]
+}
+```
+
+- `scannedCount`: số giao dịch nhận được; `scoredCount`: số đủ lịch sử để chấm; `flaggedByCategory` theo tên danh mục gốc của app.
+- Validation như mục 9 (`extra="forbid"`, `amount` > 0 và hữu hạn); `transactions` tối đa 1.000 phần tử; `id` là chuỗi tùy chọn, tối đa 64 ký tự, để app nối kết quả về giao dịch.
+- Mỗi giao dịch được chấm bằng `compute_features(giao_dịch, các_giao_dịch_khác)`, cùng định nghĩa mục 5 (100 giao dịch gần nhất có thời điểm nhỏ hơn hẳn; dưới 5 thì không chấm). Để tránh O(n²), sắp xếp theo thời gian một lần và mỗi lần chỉ đưa vào tối đa 200 giao dịch đứng trước.
+- Mọi giao dịch đủ lịch sử được gom thành **một** DataFrame và `transform` một lần bằng `PipelineModel`, không gọi Spark từng dòng.
+- `flagged` sắp xếp theo `riskScore` giảm dần. Không log amount hay category. Model B chưa load: 503.
+
+### 16.3 Flutter
+
+- `AnomalyCheckService.scanHistory()` trong `anomaly_check_service.dart`: lấy giao dịch qua `fetchTransactions()`, giữ chi tiêu có amount > 0, tối đa 1.000 giao dịch gần nhất, gọi `/v2/scan-history`, timeout 10 giây. Trả về `AnomalyScan?` (null khi không ở chế độ full, chưa cấu hình URL hoặc lỗi).
+- **Cache trong phiên:** lưu kết quả cuối cùng cùng khóa (số giao dịch, ngày giao dịch mới nhất). Mở lại mà dữ liệu không đổi thì dùng cache; kéo xuống để làm mới thì bỏ qua cache. Lưu giao dịch mới (mục 10) xóa cache.
+- **Trang `SuspiciousTransactionsPage`** (`lib/screens/ai/suspicious_transactions_page.dart`):
+  - tóm tắt "X/Y giao dịch có dấu hiệu bất thường" và phiên bản model;
+  - biểu đồ cột số giao dịch nghi vấn theo danh mục (`fl_chart`, app đã dùng);
+  - danh sách giao dịch nghi vấn: ngày, danh mục, số tiền, thanh điểm rủi ro, câu giải thích;
+  - trạng thái rỗng, lỗi (nút thử lại), chưa đủ dữ liệu như mục 11.
+- **Lối vào chính:** thẻ "Cảnh báo chi tiêu bất thường" ở đầu danh sách insight của tab AI (`ai_tab_page.dart`), hiện số giao dịch nghi vấn, bấm vào mở trang.
+- **Banner Trang chủ** (`dashboard_page.dart`): chỉ hiện khi `flaggedCount > 0` ("Có 2 giao dịch chi tiêu bất thường"), bấm vào mở trang. Lỗi hoặc không có cờ thì ẩn.
+- Không thêm tab ở thanh điều hướng dưới: bố cục hiện tại đối xứng quanh nút Quét, và một tab riêng sẽ trống với người dùng mới (cold start). Form ghi "tích hợp trực tiếp dưới dạng tính năng", nên đặt trong luồng có sẵn khớp hơn.
+
+### 16.4 Dữ liệu demo
+
+Script `BigData/BigData/scripts/seed_demo_history.py`: đăng nhập tài khoản demo qua core-backend, tạo khoảng 30 giao dịch theo thói quen (ăn trưa, đi chợ cuối tuần, xăng xe) trải trên 30 ngày trước, cộng 2–3 giao dịch bất thường (số tiền lớn, đêm khuya, danh mục ít dùng). Mục đích: hội đồng mở app là thấy banner và danh sách, và quét hóa đơn mới đã đủ lịch sử để chấm. Chỉ dùng cho tài khoản demo.
+
+### 16.5 Kiểm thử
+
+- `e2e_check.py` thêm: `scannedCount`/`scoredCount` đúng; giao dịch bất thường chèn vào lịch sử thói quen bị gắn cờ; điểm batch của một giao dịch bằng điểm `/v2/predict-anomaly` với lịch sử trước nó; 422 khi quá 1.000 giao dịch; 1.000 giao dịch chấm xong dưới 10 giây.
+- `flutter analyze` sạch; kiểm tra bằng tay trên app với tài khoản demo đã seed.
