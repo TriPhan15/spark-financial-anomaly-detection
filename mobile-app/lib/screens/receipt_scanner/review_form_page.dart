@@ -160,6 +160,7 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
       } else {
         await SqfliteHelper.instance.insertTransaction(transaction, userId);
       }
+      AnomalyCheckService.clearScanCache();
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {

@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:finance_ai_app/config/app_config.dart';
 import 'package:finance_ai_app/models/spending_range.dart';
 import 'package:finance_ai_app/models/transaction_model.dart';
+import 'package:finance_ai_app/screens/ai/suspicious_transactions_page.dart';
+import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/remote_api_helper.dart';
 import 'package:finance_ai_app/services/session_service.dart';
 import 'package:finance_ai_app/repositories/app_repository.dart';
@@ -65,6 +67,7 @@ class _AITabPageState extends State<AITabPage> {
   SpendingRange? _customRange;
   Map<String, dynamic>? _budgetAdvice;
   bool _adviceLoading = false;
+  AnomalyScan? _anomalyScan;
 
   List<TransactionModel> get _monthTxs {
     final now = DateTime.now();
@@ -130,8 +133,41 @@ class _AITabPageState extends State<AITabPage> {
       _isLoading = false;
     });
 
+    _loadAnomalyScan(forceRefresh: reportErrors);
     _loadSpadePatterns(reportErrors: reportErrors);
     _loadBudgetAdvice(txs);
+  }
+
+  Future<void> _loadAnomalyScan({bool forceRefresh = false}) async {
+    final scan = await AnomalyCheckService.scanHistory(
+      forceRefresh: forceRefresh,
+    );
+    if (mounted) setState(() => _anomalyScan = scan);
+  }
+
+  Widget _buildAnomalyCard(ColorScheme colors) {
+    final scan = _anomalyScan;
+    final subtitle = scan == null
+        ? 'Nhấn để kiểm tra các giao dịch khác thói quen của bạn.'
+        : scan.scoredCount == 0
+        ? 'Cần ít nhất 5 giao dịch để phân tích thói quen.'
+        : scan.flaggedCount == 0
+        ? 'Không có giao dịch bất thường.'
+        : '${scan.flaggedCount} giao dịch có dấu hiệu bất thường. Nhấn để xem.';
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SuspiciousTransactionsPage()),
+      ),
+      child: _buildInsightCard(
+        colors,
+        icon: Icons.warning_amber_rounded,
+        iconColor: Colors.redAccent,
+        title: 'Cảnh báo chi tiêu bất thường',
+        subtitle: subtitle,
+      ),
+    );
   }
 
   Map<String, dynamic>? _pickUrgentGoal() {
@@ -376,6 +412,8 @@ class _AITabPageState extends State<AITabPage> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        _buildAnomalyCard(colors),
+        const SizedBox(height: 16),
         _buildSafeToSpendCard(colors),
         const SizedBox(height: 16),
         _buildInsightCard(

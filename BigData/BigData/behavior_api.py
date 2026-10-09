@@ -126,6 +126,72 @@ class BehaviorEngine:
         self.spark = None
 
 
+MAX_SCAN_ITEMS = 1000
+
+
+class ScanTransactionIn(TransactionIn):
+    id: str | None = Field(default=None, max_length=64)
+
+
+class ScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    transactions: list[ScanTransactionIn] = Field(default_factory=list, max_length=MAX_SCAN_ITEMS)
+
+
+class FlaggedTransaction(BaseModel):
+    id: str | None = None
+    amount: float
+    occurredAt: str
+    category: str
+    riskScore: float
+    explanation: str | None = None
+
+
+class ScanResponse(BaseModel):
+    modelVersion: str
+    threshold: float
+    scannedCount: int
+    scoredCount: int
+    flaggedCount: int
+    flaggedByCategory: dict[str, int]
+    flagged: list[FlaggedTransaction]
+
+
+def _scan(engine: BehaviorEngine, request: ScanRequest) -> ScanResponse:
+    if not engine.loaded or engine.spark is None:
+        raise RuntimeError("Behavior model is not loaded")
+    items = sorted(request.transactions, key=lambda item: item.occurred_at.replace(tzinfo=None))
+    txns = [item.to_txn() for item in items]
+    rows, owners, all_features = [], [], []
+    for index, txn in enumerate(txns):
+        features = compute_features(txn, txns[max(0, index - MAX_HISTORY_ITEMS):index])
+        if features is not None:
+            rows.append(tuple(features[column] for column in FEATURE_COLUMNS))
+            owners.append(items[index])
+            all_features.append(features)
+
+    threshold = float(engine.metadata["threshold"])
+    flagged: list[FlaggedTransaction] = []
+    by_category: dict[str, int] = {}
+    if rows:
+        frame = engine.spark.createDataFrame(rows, schema=engine.schema)
+        scores = [float(r["probability"][1]) for r in engine.model.transform(frame).select("probability").collect()]
+        # transform keeps row order for a local, non-shuffling pipeline; the parity check in e2e_check guards this.
+        for item, features, score in zip(owners, all_features, scores):
+            if score >= threshold:
+                by_category[item.category] = by_category.get(item.category, 0) + 1
+                flagged.append(FlaggedTransaction(
+                    id=item.id, amount=item.amount, occurredAt=item.occurred_at.isoformat(),
+                    category=item.category, riskScore=round(score, 6), explanation=explain(features),
+                ))
+    flagged.sort(key=lambda entry: entry.riskScore, reverse=True)
+    return ScanResponse(
+        modelVersion=engine.metadata["modelVersion"], threshold=threshold, scannedCount=len(items),
+        scoredCount=len(rows), flaggedCount=len(flagged), flaggedByCategory=by_category, flagged=flagged,
+    )
+
+
 behavior_engine = BehaviorEngine()
 router = APIRouter(prefix="/v2", tags=["Model B - behavior anomaly"])
 
@@ -140,4 +206,19 @@ def predict_anomaly(request: AnomalyRequest) -> AnomalyResponse:
         raise HTTPException(status_code=503, detail="Behavior model is temporarily unavailable") from error
     # Log only timing and outcome, never amounts or categories.
     logger.info("predict-anomaly scored=%s in %.0f ms", response.scored, (time.perf_counter() - started) * 1000)
+    return response
+
+
+@router.post("/scan-history", response_model=ScanResponse)
+def scan_history(request: ScanRequest) -> ScanResponse:
+    started = time.perf_counter()
+    try:
+        response = _scan(behavior_engine, request)
+    except RuntimeError as error:
+        logger.warning("Behavior scan unavailable: %s", type(error).__name__)
+        raise HTTPException(status_code=503, detail="Behavior model is temporarily unavailable") from error
+    logger.info(
+        "scan-history scanned=%d scored=%d flagged=%d in %.0f ms",
+        response.scannedCount, response.scoredCount, response.flaggedCount, (time.perf_counter() - started) * 1000,
+    )
     return response

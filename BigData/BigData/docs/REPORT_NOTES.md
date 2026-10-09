@@ -135,3 +135,10 @@ Kiểm thử end-to-end (`scripts/e2e_check.py`, 13/13 PASS):
 3. Swagger http://localhost:8001/docs: gửi một request `/v2/predict-anomaly` bình thường và một request bất thường.
 4. Chạy `python scripts/e2e_check.py` để cho thấy 13/13 PASS và parity với Spark.
 5. Trên điện thoại (app build với `--dart-define=FRAUD_API_URL=http://<IP máy>:8001`): quét một hóa đơn lớn bất thường và cho thấy hộp thoại cảnh báo kèm lý do.
+
+## 11. Bổ sung: giao diện giao dịch nghi vấn và lưu ý khi khai báo
+
+- **Khai báo dữ liệu trong form đăng ký:** khai bộ Sparkov (dữ liệu giao dịch thẻ mô phỏng, có nhãn gian lận) làm dữ liệu huấn luyện; Kaggle credit-card chỉ là benchmark của Model A. Nêu rõ dữ liệu mô phỏng, đơn vị USD, và app dùng feature dạng tỉ lệ nên không phụ thuộc đơn vị.
+- **"Real time" ở đây là suy luận trực tuyến (online inference):** mỗi giao dịch được chấm ngay khi lưu (`/v2/predict-anomaly`) hoặc khi mở màn hình (`/v2/scan-history`) bằng model đã huấn luyện sẵn. Không phải streaming (Kafka/Spark Streaming); không nên nói quá.
+- **Màn hình "Cảnh báo chi tiêu bất thường" (spec mục 16):** chọn quét lại khi mở, không lưu điểm. Ưu điểm: kết quả luôn khớp model hiện tại, chấm được cả giao dịch cũ/nhập tay, không đổi core-backend hay PostgreSQL. Hướng phát triển: lưu điểm kèm `modelVersion` vào core-backend để có lịch sử "đã cảnh báo lúc nào".
+- **Demo:** `python scripts/seed_demo_history.py --email ... --password ...` tạo ~30 giao dịch thói quen và 3 giao dịch bất thường cho tài khoản demo.

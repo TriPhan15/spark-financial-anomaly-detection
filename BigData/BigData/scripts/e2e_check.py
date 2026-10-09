@@ -76,6 +76,29 @@ def model_a_checks(base: str) -> None:
     check("Model A flags real Kaggle fraud rows", flagged >= 15, f"{flagged}/{len(fraud_rows)} of the first fraud rows flagged")
 
 
+def scan_checks(base: str, history: list[dict], now: datetime) -> None:
+    odd = {"id": "odd", "amount": 1_200_000, "occurredAt": iso(now.replace(hour=23, minute=40)), "category": "Mua sắm online"}
+    txns = [{**item, "id": str(i)} for i, item in enumerate(history)] + [odd]
+    status, body, _ = call(base, "POST", "/v2/scan-history", {"transactions": txns})
+    ok = status == 200 and body["scannedCount"] == len(txns) and body["scoredCount"] == len(txns) - 5
+    check("scan-history counts (scanned = all, scored = all minus the first 5 (fewer than 5 earlier))", ok, f"{body.get('scannedCount')}/{body.get('scoredCount')}")
+    flagged = {item["id"]: item for item in body.get("flagged", [])}
+    check("scan-history flags the inserted anomaly", "odd" in flagged and body["flaggedByCategory"].get("Mua sắm online") == 1)
+
+    # Batch score must equal the single-transaction endpoint given the same prior history.
+    earlier = [item for item in history if item["occurredAt"] < odd["occurredAt"]]
+    _, single, _ = call(base, "POST", "/v2/predict-anomaly", {"current": {k: odd[k] for k in ("amount", "occurredAt", "category")}, "history": earlier})
+    same = "odd" in flagged and abs(flagged["odd"]["riskScore"] - single["riskScore"]) < 2e-6
+    check("scan-history score equals /v2/predict-anomaly score", same, f"batch={flagged.get('odd', {}).get('riskScore')} single={single.get('riskScore')}")
+
+    status, _, _ = call(base, "POST", "/v2/scan-history", {"transactions": [odd] * 1001})
+    check("422 on more than 1000 scan transactions", status == 422)
+
+    big = [{"amount": 40000 + (i % 7) * 5000, "occurredAt": iso(now - timedelta(hours=i * 3)), "category": "Ăn uống"} for i in range(1000)]
+    status, body, elapsed = call(base, "POST", "/v2/scan-history", {"transactions": big})
+    check("1000 transactions scanned under 10 s", status == 200 and elapsed < 10, f"{elapsed:.1f} s, scored={body.get('scoredCount')}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
@@ -118,6 +141,8 @@ def main() -> int:
         status == 200 and body["isAnomaly"] is True and bool(body["explanation"]),
         f"risk={body.get('riskScore')} explanation={body.get('explanation')}",
     )
+
+    scan_checks(base, history, now)
 
     if not parity_path.is_file():
         check("parity replay", False, f"{parity_path} not found")

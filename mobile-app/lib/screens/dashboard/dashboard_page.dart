@@ -15,6 +15,8 @@ import 'package:finance_ai_app/screens/budget/budget_screen.dart';
 import 'package:finance_ai_app/screens/notifications/notification_screen.dart';
 import 'package:finance_ai_app/screens/profile/savings_page.dart';
 import 'package:finance_ai_app/screens/linked/linked_services_page.dart';
+import 'package:finance_ai_app/screens/ai/suspicious_transactions_page.dart';
+import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/remote_api_helper.dart';
 import 'package:finance_ai_app/widgets/budget/budget_alert_presenter.dart';
 import 'package:finance_ai_app/widgets/budget/budget_section.dart';
@@ -59,6 +61,7 @@ class DashboardPageState extends State<DashboardPage>
   double _prevMonthlyIncome = 0;
   double _prevMonthlyExpense = 0;
   List<TransactionModel> _recentTransactions = [];
+  int _flaggedCount = 0;
 
   @override
   void initState() {
@@ -151,6 +154,7 @@ class DashboardPageState extends State<DashboardPage>
 
         _isLoading = false;
       });
+      unawaited(_refreshFlaggedCount());
       // Not awaited: a dialog waiting for the user must not keep the pull-to-refresh spinner turning.
       unawaited(
         BudgetAlertPresenter.showNew(
@@ -164,6 +168,45 @@ class DashboardPageState extends State<DashboardPage>
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+  }
+
+  /// The banner shows only when the scan succeeds and flags something; an error or no flag hides it.
+  Future<void> _refreshFlaggedCount() async {
+    final scan = await AnomalyCheckService.scanHistory();
+    if (mounted) setState(() => _flaggedCount = scan?.flaggedCount ?? 0);
+  }
+
+  Widget _buildAnomalyBanner(ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SuspiciousTransactionsPage()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Có $_flaggedCount giao dịch chi tiêu bất thường',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Notifications are kept by the server only, so there is nothing to count without it (demo mode) or signed out. On
@@ -226,6 +269,7 @@ class DashboardPageState extends State<DashboardPage>
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       _buildHeader(colors),
+                      if (_flaggedCount > 0) _buildAnomalyBanner(colors),
                       if (_budgetProgress.isNotEmpty || _budgetsFailed)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
