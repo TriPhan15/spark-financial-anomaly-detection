@@ -1,0 +1,3 @@
+# Spark model files carry .crc checksums: line-ending conversion corrupts them.
+BigData/BigData/random_forest_model/** -text
+BigData/BigData/behavior_model/** -text

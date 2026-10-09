@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug only: lets the app reach the local backend and BigData API over plain HTTP. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>
