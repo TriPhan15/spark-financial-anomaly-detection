@@ -20,7 +20,7 @@ from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
-from behavior_features import FEATURE_COLUMNS, MIN_HISTORY, Txn, compute_features, explain
+from behavior_features import FEATURE_COLUMNS, MIN_HISTORY, Txn, compute_features, exceeds_habit, explain
 
 BASE_DIR = Path(__file__).resolve().parent
 BEHAVIOR_MODEL_PATH = Path(os.getenv("BEHAVIOR_MODEL_PATH", str(BASE_DIR / "behavior_model")))
@@ -63,6 +63,8 @@ class AnomalyResponse(BaseModel):
     modelVersion: str
     explanation: str | None = None
     features: dict[str, float] | None = None
+    # "model" when the probability reached the threshold, "rule" when only the habit guard fired, None when not flagged.
+    flaggedBy: str | None = None
 
 
 class BehaviorEngine:
@@ -110,7 +112,8 @@ class BehaviorEngine:
 
         threshold = float(self.metadata["threshold"])
         risk_score = self._score(features)
-        is_anomaly = risk_score >= threshold
+        flagged_by = "model" if risk_score >= threshold else ("rule" if exceeds_habit(features) else None)
+        is_anomaly = flagged_by is not None
         return AnomalyResponse(
             scored=True,
             isAnomaly=is_anomaly,
@@ -119,6 +122,7 @@ class BehaviorEngine:
             modelVersion=version,
             explanation=explain(features) if is_anomaly else None,
             features=features,
+            flaggedBy=flagged_by,
         )
 
     def stop(self) -> None:
@@ -146,6 +150,7 @@ class FlaggedTransaction(BaseModel):
     category: str
     riskScore: float
     explanation: str | None = None
+    flaggedBy: str = "model"
 
 
 class ScanResponse(BaseModel):
@@ -179,13 +184,16 @@ def _scan(engine: BehaviorEngine, request: ScanRequest) -> ScanResponse:
         scores = [float(r["probability"][1]) for r in engine.model.transform(frame).select("probability").collect()]
         # transform keeps row order for a local, non-shuffling pipeline; the parity check in e2e_check guards this.
         for item, features, score in zip(owners, all_features, scores):
-            if score >= threshold:
+            flagged_by = "model" if score >= threshold else ("rule" if exceeds_habit(features) else None)
+            if flagged_by is not None:
                 by_category[item.category] = by_category.get(item.category, 0) + 1
                 flagged.append(FlaggedTransaction(
                     id=item.id, amount=item.amount, occurredAt=item.occurred_at.isoformat(),
                     category=item.category, riskScore=round(score, 6), explanation=explain(features),
+                    flaggedBy=flagged_by,
                 ))
-    flagged.sort(key=lambda entry: entry.riskScore, reverse=True)
+    # A rule-only flag has a low model score; rank it as if it had just reached the threshold.
+    flagged.sort(key=lambda entry: max(entry.riskScore, threshold), reverse=True)
     return ScanResponse(
         modelVersion=engine.metadata["modelVersion"], threshold=threshold, scannedCount=len(items),
         scoredCount=len(rows), flaggedCount=len(flagged), flaggedByCategory=by_category, flagged=flagged,

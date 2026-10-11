@@ -146,6 +146,17 @@ def compute_features(current: Txn, history: list[Txn]) -> dict[str, float] | Non
     }
 
 
+# Safety net on top of the model. In Sparkov almost no fraud happens in some categories (food_dining has 4 rows with a
+# ratio of 10 or more in the whole test file, all of them normal), so the model learns that a huge amount there is fine.
+# A user who declares ten times their usual spending, against both their overall and their category average, is unusual
+# for them whatever the category, so the API flags it too and says it was the rule and not the model.
+HABIT_GUARD_RATIO = 10.0
+
+
+def exceeds_habit(features: dict[str, float]) -> bool:
+    return features["amt_ratio_user"] >= HABIT_GUARD_RATIO and features["amt_ratio_user_cat"] >= HABIT_GUARD_RATIO
+
+
 def _format_ratio(value: float) -> str:
     return f"{value:.1f}".replace(".", ",")
 
