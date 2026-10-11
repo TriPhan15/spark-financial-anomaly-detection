@@ -131,6 +131,10 @@ def main() -> int:
 
     status, body, elapsed = call(base, "POST", "/v2/predict-anomaly", {"current": {"amount": 52000, "occurredAt": iso(now), "category": "Ăn uống"}, "history": history})
     check("usual lunch is not an anomaly", status == 200 and body["scored"] and body["isAnomaly"] is False, f"risk={body.get('riskScore')} threshold={body.get('threshold')}")
+    status, body, _ = call(base, "POST", "/v2/predict-anomaly", {"current": {"amount": 5_000_000, "occurredAt": iso(now), "category": "Ăn uống"}, "history": history})
+    check("absurd amount in a category the model trusts is flagged by the habit rule, and says so", status == 200 and body["isAnomaly"] is True and body.get("flaggedBy") == "rule" and body["riskScore"] < body["threshold"], f"risk={body.get('riskScore')} flaggedBy={body.get('flaggedBy')}")
+    status, body, _ = call(base, "POST", "/v2/predict-anomaly", {"current": {"amount": 52000, "occurredAt": iso(now), "category": "Ăn uống"}, "history": history})
+    check("usual lunch is not flagged by the rule either", status == 200 and body["isAnomaly"] is False and body.get("flaggedBy") is None)
     check("latency under the app's 3 s timeout", elapsed < 3, f"{elapsed * 1000:.0f} ms")
     check("Vietnamese category mapped (Ăn uống -> food_dining = 1)", body.get("features", {}).get("category_idx") == 1.0)
 
