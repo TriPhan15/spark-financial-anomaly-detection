@@ -11,13 +11,19 @@ class AnomalyResult {
   final String explanation;
   final String modelVersion;
 
+  /// 'model' when the probability reached the threshold, 'rule' when only the habit guard of the API fired.
+  final String flaggedBy;
+
   const AnomalyResult({
     required this.isAnomaly,
     required this.riskScore,
     required this.threshold,
     required this.explanation,
     required this.modelVersion,
+    this.flaggedBy = 'model',
   });
+
+  bool get flaggedByRule => flaggedBy == 'rule';
 
   static AnomalyResult? fromJson(Map<String, dynamic> json) {
     final isAnomaly = json['isAnomaly'];
@@ -31,12 +37,14 @@ class AnomalyResult {
     }
     final explanation = json['explanation'];
     final modelVersion = json['modelVersion'];
+    final flaggedBy = json['flaggedBy'];
     return AnomalyResult(
       isAnomaly: isAnomaly,
       riskScore: riskScore.toDouble(),
       threshold: threshold.toDouble(),
       explanation: explanation is String ? explanation : '',
       modelVersion: modelVersion is String ? modelVersion : '',
+      flaggedBy: flaggedBy is String ? flaggedBy : 'model',
     );
   }
 }
@@ -48,6 +56,7 @@ class FlaggedTransaction {
   final String category;
   final double riskScore;
   final String explanation;
+  final String flaggedBy;
 
   const FlaggedTransaction({
     this.id,
@@ -56,7 +65,10 @@ class FlaggedTransaction {
     required this.category,
     required this.riskScore,
     required this.explanation,
+    this.flaggedBy = 'model',
   });
+
+  bool get flaggedByRule => flaggedBy == 'rule';
 }
 
 /// Result of POST /v2/scan-history: the expenses the model flags as unusual for the user.
@@ -112,6 +124,9 @@ class AnomalyScan {
               explanation: item['explanation'] is String
                   ? item['explanation'] as String
                   : '',
+              flaggedBy: item['flaggedBy'] is String
+                  ? item['flaggedBy'] as String
+                  : 'model',
             ),
       ],
     );
@@ -126,7 +141,7 @@ class AnomalyScan {
 /// the same formulas as the Spark training job; the app never fabricates
 /// features. Fail-open: any problem returns null so saving is never blocked.
 class AnomalyCheckService {
-  static const String _baseUrl = String.fromEnvironment('FRAUD_API_URL');
+  static String _baseUrl = const String.fromEnvironment('FRAUD_API_URL');
   static const int _maxHistory = 100;
 
   static final Dio _dio = Dio(
@@ -153,6 +168,17 @@ class AnomalyCheckService {
   static String? _cacheKey;
   static AnomalyScan? _cachedScan;
 
+  /// Points the service at another API and/or another network layer. Only tests call it.
+  @visibleForTesting
+  static void configureForTest({String? baseUrl, HttpClientAdapter? adapter}) {
+    if (baseUrl != null) _baseUrl = baseUrl;
+    if (adapter != null) {
+      _dio.httpClientAdapter = adapter;
+      _scanDio.httpClientAdapter = adapter;
+    }
+    clearScanCache();
+  }
+
   /// Drops the session cache; called after a new transaction is saved.
   static void clearScanCache() {
     _cacheKey = null;
@@ -167,12 +193,12 @@ class AnomalyCheckService {
 
     try {
       final transactions = await RemoteApiHelper.instance.fetchTransactions();
-      final expenses = transactions
-          .where((t) => t.isExpense && t.amount > 0)
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
+      final expenses =
+          transactions.where((t) => t.isExpense && t.amount > 0).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
       final recent = expenses.take(_maxScan).toList();
-      final key = '${recent.length}|${recent.isEmpty ? '' : recent.first.date.toIso8601String()}';
+      final key =
+          '${recent.length}|${recent.isEmpty ? '' : recent.first.date.toIso8601String()}';
       if (!forceRefresh && _cachedScan != null && _cacheKey == key) {
         return _cachedScan;
       }
@@ -217,10 +243,9 @@ class AnomalyCheckService {
 
     try {
       final transactions = await RemoteApiHelper.instance.fetchTransactions();
-      final expenses = transactions
-          .where((t) => t.isExpense && t.amount > 0)
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
+      final expenses =
+          transactions.where((t) => t.isExpense && t.amount > 0).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
 
       final base = _baseUrl.endsWith('/')
           ? _baseUrl.substring(0, _baseUrl.length - 1)

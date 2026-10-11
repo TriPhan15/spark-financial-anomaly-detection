@@ -5,7 +5,9 @@ import 'package:finance_ai_app/core/extensions/build_context_extension.dart';
 import 'package:finance_ai_app/models/sync_status.dart';
 import 'package:finance_ai_app/models/transaction_model.dart';
 import 'package:finance_ai_app/repositories/app_repository.dart';
+import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/session_service.dart';
+import 'package:finance_ai_app/widgets/dialogs/anomaly_warning_dialog.dart';
 import 'package:finance_ai_app/widgets/dialogs/app_dialog.dart';
 
 const String _saveFailedMessage = 'Không lưu được giao dịch. Vui lòng thử lại.';
@@ -221,6 +223,25 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
 
     setState(() => _isSaving = true);
+    // A typed-in expense is checked like a scanned one: the model must not be bypassed by skipping the scanner.
+    if (_isExpense) {
+      final anomaly = await AnomalyCheckService.check(
+        amount: amount,
+        occurredAt: _selectedDate,
+        category: _selectedCategory,
+      );
+      if (!mounted) return;
+      if (anomaly?.isAnomaly == true) {
+        setState(() => _isSaving = false);
+        final saveAnyway = await AnomalyWarningDialog.confirm(
+          context,
+          result: anomaly!,
+          amount: amount,
+        );
+        if (!saveAnyway || !mounted) return;
+        setState(() => _isSaving = true);
+      }
+    }
     SyncStatus? status;
     String? failure;
     try {
@@ -228,6 +249,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         userId,
         transaction,
       );
+      AnomalyCheckService.clearScanCache();
     } on TransactionRefusedException catch (e) {
       failure = e.message;
     } catch (e) {
