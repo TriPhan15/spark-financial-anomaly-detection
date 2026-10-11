@@ -7,12 +7,14 @@ import 'package:finance_ai_app/config/app_config.dart';
 import 'package:finance_ai_app/core/constants/transaction_categories.dart';
 import 'package:finance_ai_app/core/extensions/build_context_extension.dart';
 import 'package:finance_ai_app/core/theme/app_theme.dart';
+import 'package:finance_ai_app/core/utils/currency_helper.dart';
 import 'package:finance_ai_app/models/receipt_item_model.dart';
 import 'package:finance_ai_app/models/transaction_model.dart';
 import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/remote_api_helper.dart';
 import 'package:finance_ai_app/services/session_service.dart';
 import 'package:finance_ai_app/services/sqflite_helper.dart';
+import 'package:finance_ai_app/widgets/dialogs/anomaly_warning_dialog.dart';
 
 class ReviewFormPage extends StatefulWidget {
   final String imagePath;
@@ -28,6 +30,8 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
   bool _isProcessing = true;
   bool _isSaving = false;
   double _donutTotal = 0;
+  // Set when the user corrects the total with the pencil button; it wins over what the scan read.
+  double? _manualAmount;
   Map<String, dynamic>? _rawScan;
   String? _imageUrl;
 
@@ -111,6 +115,18 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
     }
   }
 
+  /// The amount that is saved and checked: the user's correction, else the scanned total.
+  double get _amount =>
+      _manualAmount ?? (_donutTotal > 0 ? _donutTotal : _receipt.grandTotal);
+
+  Future<void> _editAmount() async {
+    final entered = await showDialog<double>(
+      context: context,
+      builder: (_) => _AmountDialog(initial: _amount),
+    );
+    if (entered != null && mounted) setState(() => _manualAmount = entered);
+  }
+
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -137,7 +153,7 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
     final transaction = TransactionModel.draft(
       title: storeName.isEmpty ? _selectedCategory : storeName,
       category: _selectedCategory,
-      amount: _donutTotal > 0 ? _donutTotal : _receipt.grandTotal,
+      amount: _amount,
       date: parsedDate,
       isExpense: true,
     );
@@ -174,7 +190,7 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    final amount = _donutTotal > 0 ? _donutTotal : _receipt.grandTotal;
+    final amount = _amount;
     DateTime occurredAt;
     try {
       occurredAt = DateFormat(
@@ -194,57 +210,15 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
     if (!mounted) return;
 
     if (result?.isAnomaly == true) {
-      final shouldSave = await _showAnomalyWarningDialog(result!, amount);
+      final shouldSave = await AnomalyWarningDialog.confirm(
+        context,
+        result: result!,
+        amount: amount,
+      );
       if (shouldSave && mounted) await _saveToDatabase();
       return;
     }
     await _saveToDatabase();
-  }
-
-  Future<bool> _showAnomalyWarningDialog(
-    AnomalyResult result,
-    double amount,
-  ) async {
-    final colors = Theme.of(context).colorScheme;
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
-      decimalDigits: 0,
-    );
-    final risk = (result.riskScore * 100).toStringAsFixed(1);
-    final threshold = (result.threshold * 100).toStringAsFixed(1);
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: colors.error, size: 32),
-        title: Text(
-          'Chi tiêu bất thường so với thói quen',
-          style: TextStyle(color: colors.error),
-        ),
-        content: Text(
-          '${formatter.format(amount)}\n'
-          '${result.explanation.isNotEmpty ? '${result.explanation}\n' : ''}'
-          'Điểm rủi ro: $risk% (ngưỡng cảnh báo $threshold%)\n\n'
-          'Bạn có muốn tiếp tục lưu không?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.error,
-              foregroundColor: colors.onError,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Vẫn lưu'),
-          ),
-        ],
-      ),
-    );
-    return shouldSave ?? false;
   }
 
   Future<void> _pickCategory() async {
@@ -471,7 +445,7 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
                     colors,
                     semantic,
                     'Tạm tính:',
-                    fmt.format(_donutTotal),
+                    fmt.format(_amount),
                   ),
                   const SizedBox(height: 8),
                   _buildTotalRow(
@@ -489,8 +463,10 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
                     colors,
                     semantic,
                     'TỔNG TIỀN:',
-                    fmt.format(_donutTotal),
+                    fmt.format(_amount),
                     isGrandTotal: true,
+                    onEdit: _editAmount,
+                    edited: _manualAmount != null,
                   ),
                 ],
               ),
@@ -575,6 +551,8 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
     String label,
     String value, {
     bool isGrandTotal = false,
+    VoidCallback? onEdit,
+    bool edited = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -587,14 +565,96 @@ class _ReviewFormPageState extends State<ReviewFormPage> {
             fontWeight: isGrandTotal ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            color: isGrandTotal ? semantic.expenseColor : colors.onSurface,
-            fontSize: isGrandTotal ? 20 : 14,
-            fontWeight: FontWeight.bold,
+        // A long amount with the "(đã sửa)" tag and the pencil must shrink instead of overflowing a narrow phone.
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (edited)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      '(đã sửa)',
+                      style: TextStyle(color: colors.primary, fontSize: 12),
+                    ),
+                  ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: isGrandTotal
+                        ? semantic.expenseColor
+                        : colors.onSurface,
+                    fontSize: isGrandTotal ? 20 : 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (onEdit != null)
+                  IconButton(
+                    tooltip: 'Sửa tổng tiền',
+                    icon: const Icon(Icons.edit_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onEdit,
+                  ),
+              ],
+            ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Asks for the total of the receipt. It owns its controller, so the controller is disposed together with the dialog and
+/// not while the dialog is still animating out.
+class _AmountDialog extends StatefulWidget {
+  final double initial;
+
+  const _AmountDialog({required this.initial});
+
+  @override
+  State<_AmountDialog> createState() => _AmountDialogState();
+}
+
+class _AmountDialogState extends State<_AmountDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial > 0 ? widget.initial.round().toString() : '',
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    final value = CurrencyHelper.parseAmount(_controller.text);
+    if (value == null) return;
+    Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Sửa tổng tiền'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Tổng tiền (đ)',
+          suffixText: 'đ',
+        ),
+        onSubmitted: (_) => _apply(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(onPressed: _apply, child: const Text('Áp dụng')),
       ],
     );
   }

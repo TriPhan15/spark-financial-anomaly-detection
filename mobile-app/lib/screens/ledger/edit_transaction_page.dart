@@ -6,10 +6,12 @@ import 'package:finance_ai_app/core/constants/transaction_categories.dart';
 import 'package:finance_ai_app/core/theme/app_theme.dart';
 import 'package:finance_ai_app/core/utils/currency_helper.dart';
 import 'package:finance_ai_app/models/transaction_model.dart';
+import 'package:finance_ai_app/services/anomaly_check_service.dart';
 import 'package:finance_ai_app/services/remote_api_helper.dart';
 import 'package:finance_ai_app/services/session_service.dart';
 import 'package:finance_ai_app/widgets/common/custom_text_field.dart';
 import 'package:finance_ai_app/widgets/common/primary_button.dart';
+import 'package:finance_ai_app/widgets/dialogs/anomaly_warning_dialog.dart';
 import 'package:finance_ai_app/widgets/dialogs/app_dialog.dart';
 import 'package:finance_ai_app/widgets/receipt/receipt_status_badge.dart';
 
@@ -175,9 +177,32 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     }
 
     setState(() => _isSaving = true);
+    // Raising an amount or moving it to another category is a way around the check at entry, so an edited expense is
+    // checked against the history before its own time, the same as a new one.
+    if (_original.isExpense &&
+        (changes.containsKey(_fieldAmount) ||
+            changes.containsKey(_fieldCategory))) {
+      final anomaly = await AnomalyCheckService.check(
+        amount: amount,
+        occurredAt: _original.date,
+        category: _category,
+      );
+      if (!mounted) return;
+      if (anomaly?.isAnomaly == true) {
+        setState(() => _isSaving = false);
+        final saveAnyway = await AnomalyWarningDialog.confirm(
+          context,
+          result: anomaly!,
+          amount: amount,
+        );
+        if (!saveAnyway || !mounted) return;
+        setState(() => _isSaving = true);
+      }
+    }
     final failure = await _send(id, changes);
     if (!mounted) return;
     setState(() => _isSaving = false);
+    if (failure == null) AnomalyCheckService.clearScanCache();
 
     if (failure != null) {
       await AppDialog.error(

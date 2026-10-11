@@ -247,24 +247,37 @@ class _SuspiciousTransactionsPageState
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Text('Rủi ro', style: TextStyle(color: colors.onSurfaceVariant)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: t.riskScore.clamp(0.0, 1.0),
-                    minHeight: 8,
-                    color: Colors.redAccent,
+          if (t.flaggedByRule)
+            Text(
+              'Vượt xa mức chi thường ngày',
+              style: TextStyle(
+                color: colors.error,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            )
+          else
+            Row(
+              children: [
+                Text(
+                  'Rủi ro',
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: t.riskScore.clamp(0.0, 1.0),
+                      minHeight: 8,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text('${(t.riskScore * 100).round()}%'),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Text('${(t.riskScore * 100).round()}%'),
+              ],
+            ),
           if (t.explanation.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
