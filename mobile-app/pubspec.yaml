@@ -1,0 +1,63 @@
+name: finance_ai_app
+description: "LedgerMind - Smart personal finance app with AI" 
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # State & DI
+  provider: ^6.1.2
+  flutter_bloc: ^8.1.5
+  get_it: ^7.7.0
+  equatable: ^2.0.5
+  # UI
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  fl_chart: ^0.68.0
+  # Camera & QR
+  image_picker: ^1.2.1
+  google_mlkit_document_scanner: 0.4.1
+  mobile_scanner: ^5.2.3
+  qr_flutter: ^4.1.0
+  # DB & Storage
+  sqflite: ^2.3.3+1
+  sqflite_common_ffi: ^2.3.3
+  path: ^1.9.0
+  path_provider: ^2.1.3
+  shared_preferences: ^2.2.3
+  # Networking
+  dio: ^5.7.0
+  # Social auth (Google + Facebook OAuth)
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^7.1.1
+  # Utils
+  intl: ^0.20.2
+  permission_handler: ^11.3.1
+  excel: ^4.0.6
+  url_launcher: ^6.3.0
+  share_plus: ^13.1.0
+  uuid: ^4.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1 
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/payment/
+    - assets/images/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo.png"

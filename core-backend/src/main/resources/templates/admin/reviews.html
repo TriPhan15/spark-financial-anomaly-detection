@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Quản lý Đánh giá Ứng dụng</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .star-rating { color: #ffc107; font-size: 1.2rem; }
+        .table > :not(caption) > * > * { vertical-align: middle; }
+    </style>
+</head>
+<body>
+<div th:replace="~{admin/layout/_layout :: main('Quản lý Đánh giá & Góp ý', ~{:: #main-content})}">
+    <div id="main-content">
+
+        <div class="card shadow-sm border-0 mb-4 border-top border-4 border-warning">
+            <div class="card-header bg-white border-bottom pt-3 pb-3">
+                <h5 class="card-title text-dark fw-bold mb-0">
+                    <i class="bi bi-star-fill text-warning me-2"></i>Danh sách Đánh giá & Góp ý từ App
+                </h5>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table id="reviewsTable" class="table table-hover align-middle border w-100">
+                        <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width: 5%;">ID</th>
+                            <th style="width: 20%;">Người dùng</th>
+                            <th class="text-center" style="width: 15%;">Số Sao</th>
+                            <th style="width: 30%;">Nội dung (Comment)</th>
+                            <th class="text-center" style="width: 15%;">Trạng thái</th>
+                            <th class="text-center" style="width: 15%;">Hành động</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="review : ${reviews}">
+                            <td class="text-center fw-bold text-muted" th:text="${'#' + review.id}"></td>
+                            <td class="fw-bold" th:text="${review.userEmail}"></td>
+                            <td class="text-center">
+                                <span class="star-rating">
+                                    <i th:each="i : ${#numbers.sequence(1, review.rating)}" class="bi bi-star-fill"></i>
+                                    <i th:if="${review.rating < 5}" th:each="i : ${#numbers.sequence(review.rating + 1, 5)}" class="bi bi-star text-muted"></i>
+                                </span>
+                            </td>
+                            <td><span class="text-wrap" th:text="${review.comment}"></span></td>
+                            <td class="text-center">
+                                <span th:if="${review.status == 'PENDING'}" class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-hourglass-split"></i> Chờ duyệt</span>
+                                <span th:if="${review.status == 'APPROVED'}" class="badge bg-success px-3 py-2"><i class="bi bi-check-circle"></i> Đã duyệt</span>
+                            </td>
+                            <td class="text-center">
+                                <button th:if="${review.status == 'PENDING'}" class="btn btn-sm btn-success fw-bold me-1" th:onclick="approveReview([[${review.id}]])" title="Duyệt để hiển thị">
+                                    <i class="bi bi-check2"></i> Duyệt
+                                </button>
+                                <button class="btn btn-sm btn-danger fw-bold" th:onclick="deleteReview([[${review.id}]])" title="Xóa bỏ đánh giá xấu">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+        <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <script>
+            $(document).ready(function() {
+                $('#reviewsTable').DataTable({
+                    "pageLength": 10,
+                    "order": [ [0, "desc"] ],
+                    "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json" }
+                });
+            });
+
+            function approveReview(id) {
+                Swal.fire({
+                    title: 'Duyệt đánh giá?',
+                    text: "Bạn có chắc chắn muốn duyệt đánh giá này để hiển thị công khai không?",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#198754',
+                    cancelButtonText: 'Hủy',
+                    confirmButtonText: 'Đồng ý, Duyệt'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '/admin/ajax/reviews/' + id + '/approve',
+                            type: 'POST',
+                            success: function(res) {
+                                Swal.fire('Thành công!', res.message, 'success').then(() => location.reload());
+                            },
+                            error: function(err) {
+                                Swal.fire('Lỗi!', err.responseJSON?.message || 'Có lỗi xảy ra', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
+            function deleteReview(id) {
+                Swal.fire({
+                    title: 'Xóa đánh giá?',
+                    text: "Đánh giá vi phạm này sẽ bị xóa vĩnh viễn khỏi hệ thống!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonText: 'Hủy',
+                    confirmButtonText: 'Xóa ngay'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '/admin/ajax/reviews/' + id,
+                            type: 'DELETE',
+                            success: function(res) {
+                                Swal.fire('Đã xóa!', res.message, 'success').then(() => location.reload());
+                            },
+                            error: function(err) {
+                                Swal.fire('Lỗi!', err.responseJSON?.message || 'Có lỗi xảy ra', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+        </script>
+
+    </div>
+</div>
+</body>
+</html>

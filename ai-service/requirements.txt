@@ -1,0 +1,21 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Core AI Framework 
+torch
+torchvision
+
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# AI Libraries
+pillow
+transformers
+sentencepiece
+scikit-learn
+
+# Testing
+pytest
+pytest-mock
+httpx

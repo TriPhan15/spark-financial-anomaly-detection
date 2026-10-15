@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Quản lý Gói Hội viên PRO</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .swal2-popup.swal2-toast { padding: 10px 15px !important; }
+    </style>
+</head>
+<body>
+<div th:replace="~{admin/layout/_layout :: main('Quản lý Gói Hội viên PRO', ~{:: #main-content})}">
+    <div id="main-content">
+
+        <div class="card shadow-sm border-0 mb-4 border-top border-4 border-success">
+            <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center">
+                <h5 class="card-title text-success fw-bold mb-0"><i class="bi bi-gem me-2"></i>Thiết lập Gói Hội viên (SaaS Plans)</h5>
+                <button class="btn btn-success btn-sm px-3 rounded-pill" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+                    <i class="bi bi-plus-circle me-1"></i> Tạo Gói Mới
+                </button>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">ID</th>
+                            <th>Tên Gói Cước</th>
+                            <th class="text-end">Giá tiền</th>
+                            <th class="text-center">Thời hạn</th>
+                            <th class="text-center">Giới hạn AI</th>
+                            <th class="text-center">SPADE</th>
+                            <th class="text-center pe-4">Hành động</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="plan : ${plans}">
+                            <td class="ps-4 fw-bold text-secondary" th:text="${'#' + plan.id}"></td>
+
+                            <td class="fw-bold text-uppercase text-primary" th:text="${plan.planName}"></td>
+
+                            <td class="text-end fw-bold text-danger" th:text="${#numbers.formatInteger(plan.price, 0, 'COMMA')} + ' VNĐ'"></td>
+
+                            <td class="text-center text-muted fw-bold" th:text="${plan.durationDays + ' ngày'}"></td>
+
+                            <td class="text-center">
+                                <span th:if="${plan.maxAiScans == -1}" class="badge bg-warning text-dark"><i class="bi bi-infinity"></i> Unlimited</span>
+                                <span th:unless="${plan.maxAiScans == -1}" class="badge bg-light text-dark border" th:text="${plan.maxAiScans + ' lần/tháng'}"></span>
+                            </td>
+
+                            <td class="text-center">
+                                <i th:if="${plan.wcmSpadeEnabled}" class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <i th:unless="${plan.wcmSpadeEnabled}" class="bi bi-x-circle text-danger fs-5"></i>
+                            </td>
+
+                            <td class="text-center pe-4">
+                                <button type="button" class="btn btn-sm btn-info px-2 rounded-pill me-1"
+                                        data-bs-toggle="modal" data-bs-target="#editPlanModal"
+                                        th:data-id="${plan.id}" th:data-name="${plan.planName}"
+                                        th:data-price="${plan.price}" th:data-days="${plan.durationDays}"
+                                        th:data-scans="${plan.maxAiScans}" th:data-spade="${plan.wcmSpadeEnabled}">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+
+                                <button type="button" class="btn btn-sm px-2 rounded-pill"
+                                        th:classappend="${!plan.active ? 'btn-outline-success' : 'btn-outline-warning'}"
+                                        th:onclick="togglePlanStatus([[${plan.id}]], [[${plan.active}]])">
+                                    <i class="bi" th:classappend="${!plan.active ? 'bi-eye-fill' : 'bi-eye-slash-fill'}"></i>
+                                    <span th:text="${!plan.active ? 'Mở bán' : 'Tạm ẩn'}"></span>
+                                </button>
+
+                                <button type="button" class="btn btn-sm btn-danger px-2 rounded-pill ms-1" th:onclick="deletePlan([[${plan.id}]])">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </td>
+                        </tr>
+                        <tr th:if="${plans == null or plans.isEmpty()}">
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-box-seam fs-1 d-block mb-2 text-secondary"></i>
+                                Chưa cấu hình gói hội viên nào.
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="addPlanModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <form id="addPlanForm">
+                        <div class="modal-header bg-success text-white border-0">
+                            <h5 class="modal-title fw-bold"><i class="bi bi-gem me-2"></i>Khởi tạo Gói PRO mới</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-muted">Tên gói cước <span class="text-danger">*</span></label>
+                                <input type="text" name="planName" class="form-control fw-bold" required placeholder="VD: Premium 1 Tháng">
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold text-muted">Giá tiền (VNĐ) <span class="text-danger">*</span></label>
+                                    <input type="number" name="price" class="form-control" required placeholder="VD: 49000">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold text-muted">Thời hạn (Ngày) <span class="text-danger">*</span></label>
+                                    <input type="number" name="durationDays" class="form-control" required placeholder="VD: 30">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-muted">Giới hạn AI Quét (Hóa đơn) <span class="text-danger">*</span></label>
+                                <input type="number" name="maxAiScans" class="form-control" required placeholder="Nhập -1 nếu vô hạn">
+                            </div>
+                            <div class="mb-3 form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" name="isWcmSpadeEnabled" id="spadeCheck" value="true">
+                                <label class="form-check-label fw-bold text-primary" for="spadeCheck">
+                                    Bật AI Khai phá (WCM-SPADE)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-success px-4">Đăng bán</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="editPlanModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <form id="editPlanForm">
+                        <input type="hidden" id="editPlanId" name="id">
+                        <div class="modal-header bg-info text-white border-0">
+                            <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Sửa thông tin Gói PRO</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-muted">Tên gói cước</label>
+                                <input type="text" id="editPlanName" name="planName" class="form-control fw-bold" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold text-muted">Giá tiền (VNĐ)</label>
+                                    <input type="number" id="editPrice" name="price" class="form-control" required>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold text-muted">Thời hạn (Ngày)</label>
+                                    <input type="number" id="editDurationDays" name="durationDays" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-muted">Giới hạn AI Quét</label>
+                                <input type="number" id="editMaxAiScans" name="maxAiScans" class="form-control" required>
+                            </div>
+                            <div class="mb-3 form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" name="isWcmSpadeEnabled" id="editSpadeCheck" value="true">
+                                <label class="form-check-label fw-bold text-primary" for="editSpadeCheck">
+                                    Bật AI Khai phá (WCM-SPADE)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-info text-white px-4">Lưu cập nhật</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const Toast = Swal.mixin({
+        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('addPlanForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            data.isWcmSpadeEnabled = document.getElementById('spadeCheck').checked;
+
+            fetch('/admin/ajax/subscriptions', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+            }).then(res => res.json()).then(resData => {
+                if(resData.code === 201 || resData.status === 200) {
+                    Toast.fire({ icon: 'success', title: 'Đã tạo gói thành công!' });
+                    setTimeout(() => location.reload(), 1000);
+                }
+            });
+        });
+
+        document.getElementById('editPlanModal').addEventListener('show.bs.modal', function (e) {
+            const btn = e.relatedTarget;
+            document.getElementById('editPlanId').value = btn.getAttribute('data-id');
+            document.getElementById('editPlanName').value = btn.getAttribute('data-name');
+            document.getElementById('editPrice').value = btn.getAttribute('data-price');
+            document.getElementById('editDurationDays').value = btn.getAttribute('data-days');
+            document.getElementById('editMaxAiScans').value = btn.getAttribute('data-scans');
+            document.getElementById('editSpadeCheck').checked = btn.getAttribute('data-spade') === 'true';
+        });
+
+        document.getElementById('editPlanForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const id = document.getElementById('editPlanId').value;
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            data.isWcmSpadeEnabled = document.getElementById('editSpadeCheck').checked;
+
+            fetch(`/admin/ajax/subscriptions/${id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+            }).then(res => res.json()).then(resData => {
+                if(resData.code === 200 || resData.status === 200) {
+                    Toast.fire({ icon: 'success', title: 'Cập nhật thành công!' });
+                    setTimeout(() => location.reload(), 1000);
+                }
+            });
+        });
+    });
+
+    function togglePlanStatus(id, isActive) {
+        let action = isActive ? "Tạm ẩn" : "Mở bán";
+        Swal.fire({
+            title: `Xác nhận ${action}?`,
+            text: isActive ? "Người dùng trên App sẽ không thấy gói này nữa." : "Gói này sẽ được hiển thị lại trên App.",
+            icon: 'warning', showCancelButton: true, confirmButtonColor: isActive ? '#f0ad4e' : '#198754', confirmButtonText: `Vâng, ${action}`
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/admin/ajax/subscriptions/${id}/toggle`, { method: 'PUT' })
+                    .then(res => res.json()).then(data => {
+                    Toast.fire({ icon: 'success', title: `Đã ${action} gói!` });
+                    setTimeout(() => location.reload(), 1000);
+                });
+            }
+        });
+    }
+
+    function deletePlan(id) {
+        Swal.fire({
+            title: 'Xóa vĩnh viễn?', text: "Gói cước này sẽ bị xóa khỏi hệ thống!", icon: 'error',
+            showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Xóa ngay'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/admin/ajax/subscriptions/${id}`, { method: 'DELETE' })
+                    .then(res => res.json()).then(data => {
+                    Toast.fire({ icon: 'success', title: 'Đã xóa gói!' });
+                    setTimeout(() => location.reload(), 1000);
+                });
+            }
+        });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Build output
+target/
+*.jar
+*.war
+
+# Security 
+.env
+*.pem
+*.key
+
+# IDEs 
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/

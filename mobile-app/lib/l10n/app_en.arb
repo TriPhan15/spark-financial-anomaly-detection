@@ -1,0 +1,317 @@
+{
+  "@@locale": "en",
+  "settings": "Settings",
+  "@settings": {
+    "description": "Title of the settings screen."
+  },
+  "language": "Language",
+  "@language": {
+    "description": "Label of the language setting."
+  },
+  "theme": "Theme",
+  "@theme": {
+    "description": "Label of the theme setting."
+  },
+  "dark": "Dark",
+  "@dark": {
+    "description": "Dark theme option."
+  },
+  "light": "Light",
+  "@light": {
+    "description": "Light theme option."
+  },
+  "system": "System",
+  "@system": {
+    "description": "Theme option that follows the device setting."
+  },
+  "systemThemeDescription": "Follows your device setting",
+  "@systemThemeDescription": {
+    "description": "Subtitle of the System theme option."
+  },
+  "english": "English",
+  "@english": {
+    "description": "Name of the English language, written in English in every locale so that its speakers can find it."
+  },
+  "vietnamese": "Tiếng Việt",
+  "@vietnamese": {
+    "description": "Name of the Vietnamese language, written in Vietnamese in every locale so that its speakers can find it."
+  },
+  "settingsSaveFailed": "Couldn't save this setting. The change applies until you close the app.",
+  "@settingsSaveFailed": {
+    "description": "Snackbar shown when a theme or language choice could not be written to the device."
+  },
+  "notificationsTitle": "Notifications",
+  "@notificationsTitle": {
+    "description": "Title of the notification screen, also the tooltip of the bell on the home screen."
+  },
+  "notificationsMarkAllRead": "Mark all as read",
+  "@notificationsMarkAllRead": {
+    "description": "App bar action of the notification screen that marks every notification as read."
+  },
+  "notificationsEmpty": "You have no notifications yet.",
+  "@notificationsEmpty": {
+    "description": "Shown on the notification screen when the user has no notification at all."
+  },
+  "notificationsLoadFailed": "Couldn't load your notifications.",
+  "@notificationsLoadFailed": {
+    "description": "Shown when the list of notifications could not be loaded from the server."
+  },
+  "notificationsLoadMoreFailed": "Couldn't load more notifications.",
+  "@notificationsLoadMoreFailed": {
+    "description": "Shown at the end of the list when the next page of notifications could not be loaded."
+  },
+  "notificationsRetry": "Try again",
+  "@notificationsRetry": {
+    "description": "Button that asks the server for the notifications again after a failure."
+  },
+  "notificationsMarkReadFailed": "Couldn't mark the notification as read. Please try again.",
+  "@notificationsMarkReadFailed": {
+    "description": "Snackbar shown when the server refused or missed marking one notification as read; it shows as unread again."
+  },
+  "notificationsMarkAllReadFailed": "Couldn't mark your notifications as read. Please try again.",
+  "@notificationsMarkAllReadFailed": {
+    "description": "Snackbar shown when marking every notification as read failed; they show as unread again."
+  },
+  "notificationsDetailUnavailable": "This notification can't be opened yet.",
+  "@notificationsDetailUnavailable": {
+    "description": "Snackbar shown when the tapped notification has no screen to open in the app yet."
+  },
+  "notificationsUnread": "Unread",
+  "@notificationsUnread": {
+    "description": "Screen reader label of the dot that marks an unread notification."
+  },
+  "notificationTypeBudgetWarning": "Budget almost used up",
+  "@notificationTypeBudgetWarning": {
+    "description": "Heading of a notification saying that spending reached 80% of a budget."
+  },
+  "notificationTypeBudgetExceeded": "Budget exceeded",
+  "@notificationTypeBudgetExceeded": {
+    "description": "Heading of a notification saying that spending reached or passed 100% of a budget."
+  },
+  "notificationTypeTransactionAlert": "Transaction alert",
+  "@notificationTypeTransactionAlert": {
+    "description": "Heading of a notification about one transaction."
+  },
+  "notificationTypeReceiptProcessed": "Receipt processed",
+  "@notificationTypeReceiptProcessed": {
+    "description": "Heading of a notification saying that a receipt has been processed."
+  },
+  "notificationTypeOther": "Notification",
+  "@notificationTypeOther": {
+    "description": "Heading of a notification whose kind this version of the app does not know."
+  },
+  "sessionEnded": "Your session has ended, for example because your password was changed. Please sign in again.",
+  "@sessionEnded": {
+    "description": "SnackBar shown on the login screen after the app signed the user out because the session could not be renewed, e.g. the password was changed or reset on another device."
+  },
+  "dialogGotIt": "Got it",
+  "@dialogGotIt": {
+    "description": "Button that closes an error dialog."
+  },
+  "forgotPasswordTitle": "Forgot password",
+  "@forgotPasswordTitle": {
+    "description": "App bar title of the forgot-password screen, the first step of the password recovery."
+  },
+  "forgotPasswordHeading": "Get a verification code",
+  "@forgotPasswordHeading": {
+    "description": "Heading of the forgot-password screen, above its description."
+  },
+  "forgotPasswordDescription": "Enter the email of your account. We'll send you a one-time code (OTP) to set a new password.",
+  "@forgotPasswordDescription": {
+    "description": "Explains on the forgot-password screen that a one-time code will be emailed to the address typed below."
+  },
+  "forgotPasswordEmailLabel": "Email",
+  "@forgotPasswordEmailLabel": {
+    "description": "Label above the email field of the forgot-password screen."
+  },
+  "forgotPasswordEmailHint": "Enter your email address",
+  "@forgotPasswordEmailHint": {
+    "description": "Hint inside the empty email field of the forgot-password screen."
+  },
+  "forgotPasswordEmailRequired": "Please enter your email.",
+  "@forgotPasswordEmailRequired": {
+    "description": "Error under the email field when the user asks for a code without typing an email."
+  },
+  "forgotPasswordEmailInvalid": "Please enter a valid email address.",
+  "@forgotPasswordEmailInvalid": {
+    "description": "Error under the email field when what was typed is not an email address."
+  },
+  "forgotPasswordSendOtp": "Send code",
+  "@forgotPasswordSendOtp": {
+    "description": "Button of the forgot-password screen that asks the server to email a one-time code."
+  },
+  "forgotPasswordSendFailed": "Couldn't send the code",
+  "@forgotPasswordSendFailed": {
+    "description": "Title of the error dialog shown when the one-time code could not be sent or sent again."
+  },
+  "forgotPasswordRejected": "The code couldn't be sent. Please check the email and try again.",
+  "@forgotPasswordRejected": {
+    "description": "Error dialog text when the server refused to send a one-time code without saying why."
+  },
+  "resetPasswordTitle": "Reset password",
+  "@resetPasswordTitle": {
+    "description": "App bar title of the reset-password screen, where the user types the one-time code and a new password."
+  },
+  "resetPasswordHeading": "Create a new password",
+  "@resetPasswordHeading": {
+    "description": "Heading of the reset-password screen, above its description."
+  },
+  "resetPasswordDescription": "Enter the code we sent to {email}, then choose a new password.",
+  "@resetPasswordDescription": {
+    "description": "Description of the reset-password screen. The email is shown partly hidden.",
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "an***@gmail.com"
+      }
+    }
+  },
+  "resetPasswordOtpLabel": "Verification code (OTP)",
+  "@resetPasswordOtpLabel": {
+    "description": "Label above the one-time code field of the reset-password screen."
+  },
+  "resetPasswordOtpHint": "{length}-digit code",
+  "@resetPasswordOtpHint": {
+    "description": "Hint inside the empty one-time code field.",
+    "placeholders": {
+      "length": {
+        "type": "int",
+        "example": "6"
+      }
+    }
+  },
+  "resetPasswordOtpRequired": "Please enter the code.",
+  "@resetPasswordOtpRequired": {
+    "description": "Error under the one-time code field when it is empty."
+  },
+  "resetPasswordOtpInvalid": "The code must be exactly {length} digits.",
+  "@resetPasswordOtpInvalid": {
+    "description": "Error under the one-time code field when it does not hold exactly the expected number of digits.",
+    "placeholders": {
+      "length": {
+        "type": "int",
+        "example": "6"
+      }
+    }
+  },
+  "resetPasswordResendOtp": "Resend code",
+  "@resetPasswordResendOtp": {
+    "description": "Button that emails a new one-time code to the same address."
+  },
+  "resetPasswordResendIn": "Resend code in {seconds}s",
+  "@resetPasswordResendIn": {
+    "description": "Disabled resend button while the user has to wait before asking for another code.",
+    "placeholders": {
+      "seconds": {
+        "type": "int",
+        "example": "42"
+      }
+    }
+  },
+  "resetPasswordOtpResent": "A new code has been sent. Please check your email.",
+  "@resetPasswordOtpResent": {
+    "description": "SnackBar shown when a new one-time code has been sent."
+  },
+  "resetPasswordNewPasswordLabel": "New password",
+  "@resetPasswordNewPasswordLabel": {
+    "description": "Label above the new password field of the reset-password screen."
+  },
+  "resetPasswordNewPasswordHint": "Enter a new password",
+  "@resetPasswordNewPasswordHint": {
+    "description": "Hint inside the empty new password field."
+  },
+  "resetPasswordPasswordRequired": "Please enter a new password.",
+  "@resetPasswordPasswordRequired": {
+    "description": "Error under the new password field when it is empty."
+  },
+  "resetPasswordPasswordPolicy": "{min} to {max} characters, with at least one letter and one digit.",
+  "@resetPasswordPasswordPolicy": {
+    "description": "The password rules, shown under the new password field, in the error colour when the password breaks them.",
+    "placeholders": {
+      "min": {
+        "type": "int",
+        "example": "8"
+      },
+      "max": {
+        "type": "int",
+        "example": "72"
+      }
+    }
+  },
+  "resetPasswordConfirmPasswordLabel": "Confirm new password",
+  "@resetPasswordConfirmPasswordLabel": {
+    "description": "Label above the field where the new password is typed a second time."
+  },
+  "resetPasswordConfirmPasswordHint": "Enter the new password again",
+  "@resetPasswordConfirmPasswordHint": {
+    "description": "Hint inside the empty confirmation field."
+  },
+  "resetPasswordConfirmRequired": "Please confirm the new password.",
+  "@resetPasswordConfirmRequired": {
+    "description": "Error under the confirmation field when it is empty."
+  },
+  "resetPasswordMismatch": "The passwords don't match.",
+  "@resetPasswordMismatch": {
+    "description": "Error under the confirmation field when it differs from the new password."
+  },
+  "resetPasswordSubmit": "Reset password",
+  "@resetPasswordSubmit": {
+    "description": "Button that sets the new password with the one-time code."
+  },
+  "resetPasswordSubmitting": "Processing...",
+  "@resetPasswordSubmitting": {
+    "description": "Label of the disabled reset button while the request is on its way."
+  },
+  "resetPasswordSuccessTitle": "Password reset",
+  "@resetPasswordSuccessTitle": {
+    "description": "Title of the dialog shown when the password has been reset."
+  },
+  "resetPasswordSuccessMessage": "Your password has been changed. Please sign in with your new password.",
+  "@resetPasswordSuccessMessage": {
+    "description": "Text of the dialog shown when the password has been reset; the user is not signed in automatically."
+  },
+  "resetPasswordBackToLogin": "Back to sign in",
+  "@resetPasswordBackToLogin": {
+    "description": "Button of the success dialog that opens the login screen."
+  },
+  "resetPasswordFailed": "Couldn't reset your password",
+  "@resetPasswordFailed": {
+    "description": "Title of the error dialog shown when the password could not be reset."
+  },
+  "resetPasswordRejected": "Your password couldn't be reset. Please check the code and try again.",
+  "@resetPasswordRejected": {
+    "description": "Error dialog text when the server refused the reset without saying why."
+  },
+  "passwordShow": "Show password",
+  "@passwordShow": {
+    "description": "Tooltip of the eye button that shows a hidden password."
+  },
+  "passwordHide": "Hide password",
+  "@passwordHide": {
+    "description": "Tooltip of the eye button that hides a shown password."
+  },
+  "passwordRecoverySending": "Sending...",
+  "@passwordRecoverySending": {
+    "description": "Label of a disabled send or resend button while the one-time code request is on its way."
+  },
+  "passwordRecoveryServerOnly": "Password recovery needs a connection to the server and isn't available in demo mode.",
+  "@passwordRecoveryServerOnly": {
+    "description": "Shown when the user tries to recover a password in the offline demo mode, where there is no server to send a code."
+  },
+  "passwordRecoveryNetworkError": "Can't reach the server. Please check your connection and try again.",
+  "@passwordRecoveryNetworkError": {
+    "description": "Error dialog text when a password recovery request got no answer from the server."
+  },
+  "passwordRecoveryTimeout": "The server is taking too long to respond. Please try again.",
+  "@passwordRecoveryTimeout": {
+    "description": "Error dialog text when a password recovery request timed out."
+  },
+  "passwordRecoveryServerError": "The server ran into a problem. Please try again later.",
+  "@passwordRecoveryServerError": {
+    "description": "Error dialog text when the server failed (5xx) on a password recovery request."
+  },
+  "passwordRecoveryUnexpectedError": "Something went wrong. Please try again.",
+  "@passwordRecoveryUnexpectedError": {
+    "description": "Error dialog text when a password recovery request failed for a reason the app does not know."
+  }
+}

@@ -1,0 +1,128 @@
+# ============================================================
+# DonutPay monorepo .gitignore
+# Flutter (mobile-app) + Spring Boot (core-backend) + FastAPI (ai-service)
+# ============================================================
+
+# ---------- SECRETS / KEYS----------
+*.env
+.env
+.env.*
+*.pem
+*.p12
+*.jks
+*.keystore
+*.key
+key.properties
+keystore.properties
+secrets.properties
+**/keys/
+serviceAccount*.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Spring config with credentials
+**/application.yml
+**/application.yaml
+**/application-*.yml
+**/application-*.yaml
+**/application.example.yml
+**/application.example.yaml
+**/application*.properties
+!**/application*.properties.template
+
+# DB dumps / backups / personal data
+backups/
+**/backups/
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.csv
+!core-backend/src/main/resources/db/
+!core-backend/src/main/resources/db/*.sql
+# ---------- Uploads / Media ----------
+**/uploads/
+**/media/
+**/tmp/
+# logs
+*.log
+**/logs/
+
+# ---------- Flutter / Dart ----------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+*.lock.bak
+
+# generated platform glue (keep pubspec.lock tracked on purpose)
+**/Flutter/ephemeral/
+**/Flutter/Generated.xcconfig
+**/Flutter/flutter_export_environment.sh
+**/ServiceDefinitions.json
+android/local.properties
+**/android/local.properties
+**/.gradle/
+
+# ---------- Java / Spring  ----------
+target/
+**/target/
+*.class
+*.jar
+*.war
+!**/.mvn/wrapper/maven-wrapper.jar
+hs_err_pid*
+
+# ---------- Python / FastAPI ----------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+**/.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---------- IDE / Editor ----------
+.idea/
+**/.idea/
+*.iml
+.vscode/
+**/.vscode/
+*.swp
+*.swo
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- ML weights----------
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+*.pb
+*.tflite
+*.bin
+*.gguf
+**/donut_result/*.safetensors
+CNTT-KLCN175-Phung The Bao_TASK_ASSIGNMENT.md
+CNTT-KLCN175-Phung The Bao_CODE_REVIEW.md
+*.docx
+CLAUDE.md
+JUNIOR_ENGINEER_CURRICULUM.md
+Do_An_BigData_NoSQL_Plan.md
+FEATURE_AUDIT.md
+ycda.txt.env_deploy

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Sao lưu & Phục hồi Dữ liệu</title>
+</head>
+<body>
+<div th:replace="~{admin/layout/_layout :: main('Quản lý Dữ liệu Hệ thống', ~{:: #main-content})}">
+    <div id="main-content">
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <style>
+            #loadingOverlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0, 0, 0, 0.85); z-index: 9999;
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+            }
+            .hover-effect:hover { transform: translateY(-5px); transition: all 0.3s ease; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+        </style>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-5">
+
+                        <div class="alert alert-warning border-warning border-start border-4 bg-warning bg-opacity-10 mb-5">
+                            <h5 class="fw-bold text-dark"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Lưu ý quan trọng từ Server</h5>
+                            <ul class="mb-0 text-dark">
+                                <li>File backup sẽ được mã hóa và lưu trữ trực tiếp trên máy chủ tại: <code class="bg-light px-2 py-1 rounded">/var/backups/finance_db/</code></li>
+                                <li>Quá trình sao lưu (Full Backup) có thể gây nghẽn cổ chai (Bottleneck).Vui lòng thực hiện vào ban đêm.</li>
+                            </ul>
+                        </div>
+
+                        <h5 class="text-primary fw-bold border-bottom pb-3 mb-4"><i class="bi bi-cloud-arrow-down-fill me-2"></i>Tiến trình Sao lưu (Backup)</h5>
+
+                        <div class="row g-4 mb-5">
+                            <div class="col-md-4">
+                                <button onclick="ConfirmBackup('FULL')" class="btn btn-outline-primary btn-lg w-100 p-4 rounded-4 hover-effect">
+                                    <i class="bi bi-hdd-network-fill display-4 d-block mb-3"></i>
+                                    <strong class="fs-5">FULL BACKUP</strong>
+                                    <div class="small text-muted mt-2">Sao lưu toàn bộ Database</div>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button onclick="ConfirmBackup('DIFF')" class="btn btn-outline-warning btn-lg w-100 p-4 rounded-4 hover-effect">
+                                    <i class="bi bi-file-earmark-diff-fill display-4 d-block mb-3"></i>
+                                    <strong class="fs-5">DIFFERENTIAL</strong>
+                                    <div class="small text-muted mt-2">Chỉ sao lưu phần thay đổi</div>
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button onclick="ConfirmBackup('LOG')" class="btn btn-outline-secondary btn-lg w-100 p-4 rounded-4 hover-effect">
+                                    <i class="bi bi-clock-history display-4 d-block mb-3"></i>
+                                    <strong class="fs-5">LOG BACKUP</strong>
+                                    <div class="small text-muted mt-2">Sao lưu nhật ký giao dịch</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <h5 class="text-danger fw-bold border-bottom pb-3 mb-4"><i class="bi bi-arrow-counterclockwise me-2"></i>Phục hồi Dữ liệu (Restore)</h5>
+
+                        <div class="card border-danger border-2 bg-danger bg-opacity-10 mb-4 rounded-4">
+                            <div class="card-body p-4 text-center">
+                                <h5 class="text-danger fw-bold mb-3"><i class="bi bi-radioactive me-2"></i> CẢNH BÁO RỦI RO</h5>
+                                <p class="text-dark mb-4">
+                                    Hệ thống sẽ thực hiện khôi phục chuỗi dữ liệu (Full ➔ Diff ➔ Log).<br>
+                                    <strong>Toàn bộ dữ liệu giao dịch mới phát sinh kể từ bản Backup cuối cùng sẽ BỊ XÓA VĨNH VIỄN.</strong>
+                                </p>
+                                <button onclick="ConfirmRestore()" class="btn btn-danger btn-lg px-5 fw-bold shadow">
+                                    <i class="bi bi-exclamation-octagon-fill me-2"></i> XÁC NHẬN KHÔI PHỤC TOÀN DIỆN
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingOverlay" class="d-none">
+            <div class="spinner-border text-primary" style="width: 4rem; height: 4rem; border-width: 0.3em;" role="status"></div>
+            <h4 class="mt-4 text-white fw-bold">Đang giao tiếp với PostgreSQL...</h4>
+            <p class="text-white-50">Vui lòng không tắt hoặc làm mới trình duyệt.</p>
+        </div>
+
+        <script>
+       
+            const Toast = Swal.mixin({
+                toast: true, position: 'top-end', showConfirmButton: false,
+                timer: 3000, timerProgressBar: true
+            });
+
+            function toggleLoading(show) {
+                const overlay = document.getElementById('loadingOverlay');
+                if (show) overlay.classList.remove('d-none');
+                else overlay.classList.add('d-none');
+            }
+
+            function ConfirmBackup(loai) {
+                Swal.fire({
+                    title: `Khởi chạy ${loai} BACKUP?`,
+                    text: "Máy chủ sẽ tốn một ít tài nguyên để nén dữ liệu.",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0d6efd',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Đồng ý, chạy ngay!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        toggleLoading(true); 
+
+                   
+                        fetch(`/admin/backup/execute?type=${loai}`, {
+                            method: 'POST'
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                toggleLoading(false); 
+                                if (data.success) {
+                                    Toast.fire({ icon: 'success', title: data.message });
+                                } else {
+                                    Swal.fire('Thất bại', data.message, 'error');
+                                }
+                            })
+                            .catch(error => {
+                                toggleLoading(false);
+                                Swal.fire('Lỗi', 'Mất kết nối với máy chủ!', 'error');
+                            });
+                    }
+                });
+            }
+
+    
+            function ConfirmRestore() {
+                Swal.fire({
+                    title: 'BẠN CÓ CHẮC CHẮN?',
+                    html: "Đây là hành động <b>không thể hoàn tác</b>.<br/>Dữ liệu hiện tại sẽ bị ghi đè!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Tôi hiểu rủi ro, Phục hồi!',
+                    cancelButtonText: 'Quay xe'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        toggleLoading(true);
+
+                        fetch(`/admin/backup/restore?type=FULL`, {
+                            method: 'POST'
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                toggleLoading(false);
+                                if (data.success) {
+                                    Swal.fire('Thành công!', data.message, 'success');
+                                } else {
+                                    Swal.fire('Thất bại', data.message, 'error');
+                                }
+                            })
+                            .catch(error => {
+                                toggleLoading(false);
+                                Swal.fire('Lỗi', 'Mất kết nối với máy chủ!', 'error');
+                            });
+                    }
+                });
+            }
+        </script>
+
+    </div>
+</div>
+</body>
+</html>

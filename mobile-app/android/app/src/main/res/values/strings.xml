@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LedgerMind</string>
+    <string name="facebook_app_id">1631447635348542</string>
+    <string name="fb_login_protocol_scheme">fb1631447635348542</string>
+    <string name="facebook_client_token">723b224af7bea5a8a4d4f6bbc1bbf526</string>
+</resources>
+

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Quản lý Danh mục Thu / Chi</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .swal2-popup.swal2-toast { padding: 10px 15px !important; }
+        table.dataTable { width: 100% !important; margin-top: 15px !important; font-size: 17px; }
+        .table > :not(caption) > * > * { padding: 12px 16px !important; vertical-align: middle; }
+    </style>
+</head>
+<body>
+<div th:replace="~{admin/layout/_layout :: main('Quản lý Danh mục Giao dịch', ~{:: #main-content})}">
+    <div id="main-content">
+
+        <div class="card shadow-sm border-0 mb-4 border-top border-4 border-warning">
+            <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center">
+                <h5 class="card-title text-warning text-darken fw-bold mb-0"><i class="bi bi-tags-fill me-2"></i>Danh sách Danh Mục (Categories)</h5>
+                <button class="btn btn-warning fw-bold btn-sm px-3 rounded-pill" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="bi bi-plus-circle me-1"></i> Tạo Danh mục
+                </button>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table id="categoriesTable" class="table table-hover table-striped align-middle border w-100 mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width: 10%;">ID</th>
+                            <th>Tên Danh mục</th>
+                            <th class="text-center" style="width: 20%;">Loại giao dịch</th>
+                            <th class="text-center" style="width: 20%;">Ngày tạo</th>
+                            <th class="text-center" style="width: 20%;">Hành động</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="cat : ${categories}">
+                            <td class="text-center fw-bold text-secondary" th:text="${'#' + cat.id}"></td>
+                            <td class="fw-bold text-primary fs-6" th:text="${cat.name}"></td>
+                            <td class="text-center">
+                                <span th:if="${cat.type == 'INCOME'}" class="badge bg-success rounded-pill px-3 py-2 w-75">Khoản Thu</span>
+                                <span th:if="${cat.type == 'EXPENSE'}" class="badge bg-danger rounded-pill px-3 py-2 w-75">Khoản Chi</span>
+                            </td>
+                            <td class="text-center text-muted fw-semibold" th:text="${#temporals.format(cat.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-info text-white px-3 rounded-pill me-1 fw-bold"
+                                        data-bs-toggle="modal" data-bs-target="#editCategoryModal"
+                                        th:data-id="${cat.id}" th:data-name="${cat.name}">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger px-3 rounded-pill ms-1 fw-bold" th:onclick="deleteCategory([[${cat.id}]])">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="addCategoryModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <form id="addCategoryForm">
+                        <div class="modal-header bg-warning border-0">
+                            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle me-2"></i>Thêm Danh Mục Mới</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tên danh mục <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required placeholder="VD: Lương, Ăn uống, Tiền điện...">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Phân loại <span class="text-danger">*</span></label>
+                                <select name="type" class="form-select" required>
+                                    <option value="EXPENSE">Khoản Chi (Trừ tiền)</option>
+                                    <option value="INCOME">Khoản Thu (Cộng tiền)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0">
+                            <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-warning text-dark fw-bold px-4">Tạo mới</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="editCategoryModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <form id="editCategoryForm">
+                        <input type="hidden" id="editCatId" name="id">
+                        <div class="modal-header bg-info text-white border-0">
+                            <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Đổi Tên Danh Mục</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tên danh mục mới <span class="text-danger">*</span></label>
+                                <input type="text" id="editCatName" name="name" class="form-control" required>
+                            </div>
+                            <div class="alert alert-info py-2 small mb-0">
+                                Lưu ý: Bạn chỉ có thể đổi tên. Không thể đổi phân loại Thu/Chi vì sẽ làm sai lệch sổ sách kế toán.
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-0">
+                            <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-info text-white fw-bold px-4">Lưu cập nhật</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const Toast = Swal.mixin({
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+            });
+
+            function deleteCategory(id) {
+                Swal.fire({
+                    title: 'Xóa danh mục này?',
+                    text: "Nếu đã có giao dịch dùng danh mục này, hệ thống sẽ không cho phép xóa!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Xóa ngay'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch(`/admin/ajax/categories/${id}`, { method: 'DELETE' })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.code === 200) {
+                                    Toast.fire({ icon: 'success', title: 'Đã xóa danh mục!' });
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    Swal.fire('Không thể xóa!', data.message, 'error');
+                                }
+                            });
+                    }
+                });
+            }
+            window.addEventListener('load', function() {
+                function loadJS(url, callback) {
+                    var script = document.createElement('script');
+                    script.src = url;
+                    script.onload = callback;
+                    document.body.appendChild(script);
+                }
+
+                function initCategoriesPage() {
+                    $('#categoriesTable').DataTable({
+                        "pageLength": 10,
+                        "order": [ [0, "desc"] ], 
+                        "columnDefs": [
+                            { "orderable": false, "targets": 4 } 
+                        ],
+                        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json" }
+                    });
+
+                    $('#addCategoryForm').on('submit', function (e) {
+                        e.preventDefault();
+                        fetch('/admin/ajax/categories', {
+                            method: 'POST',
+                            body: new URLSearchParams(new FormData(this))
+                        }).then(res => res.json()).then(data => {
+                            if (data.code === 201 || data.status === 200) {
+                                Toast.fire({ icon: 'success', title: 'Đã thêm danh mục!' });
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                Toast.fire({ icon: 'error', title: data.message });
+                            }
+                        });
+                    });
+
+                    $('#editCategoryModal').on('show.bs.modal', function (e) {
+                        const btn = $(e.relatedTarget);
+                        $('#editCatId').val(btn.data('id'));
+                        $('#editCatName').val(btn.data('name'));
+                    });
+
+                    $('#editCategoryForm').on('submit', function (e) {
+                        e.preventDefault();
+                        const id = $('#editCatId').val();
+                        fetch(`/admin/ajax/categories/${id}`, {
+                            method: 'PUT',
+                            body: new URLSearchParams(new FormData(this))
+                        }).then(res => res.json()).then(data => {
+                            if (data.code === 200 || data.status === 200) {
+                                Toast.fire({ icon: 'success', title: 'Cập nhật thành công!' });
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                Toast.fire({ icon: 'error', title: data.message });
+                            }
+                        });
+                    });
+                }
+
+                if (window.jQuery) {
+                    loadJS("https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js", function() {
+                        loadJS("https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js", initCategoriesPage);
+                    });
+                } else {
+                    loadJS("https://code.jquery.com/jquery-3.7.1.min.js", function() {
+                        loadJS("https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js", function() {
+                            loadJS("https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js", initCategoriesPage);
+                        });
+                    });
+                }
+            });
+        </script>
+
+    </div>
+</div>
+</body>
+</html>

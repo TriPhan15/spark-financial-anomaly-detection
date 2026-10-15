@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'core/theme/app_theme.dart';
+
+// TODO: Uncomment khi ráp logic backend vào
+// import 'providers/auth_provider.dart';
+// import 'services/sqflite_helper.dart';
+
+import 'screens/auth/login_screen.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    // TODO: Bọc MultiProvider vào đây sau
+    const MyApp(),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Monarch Money',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme, // Ăn trọn bộ Theme Dark Navy & Mint của bạn!
+      home: const LoginScreen(),
+    );
+  }
+}

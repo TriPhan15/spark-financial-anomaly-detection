@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Bảng điều khiển</title>
+</head>
+<body>
+<div th:replace="~{admin/layout/_layout :: main('Bảng điều khiển', ~{:: #main-dashboard})}">
+    <div id="main-dashboard">
+
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100" style="border-left: 5px solid #0d6efd !important;">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-cash-stack text-primary fs-1 me-3"></i>
+                        <div>
+                            <h6 class="card-title text-muted mb-1">Tổng Dòng Tiền</h6>
+                            <p class="card-text fw-bold fs-5 mb-0 text-primary" th:text="${totalVolume != null ? #numbers.formatInteger(totalVolume, 1, 'POINT') + ' VNĐ' : '0 VNĐ'}">0 VNĐ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100" style="border-left: 5px solid #198754 !important;">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-people-fill text-success fs-1 me-3"></i>
+                        <div>
+                            <h6 class="card-title text-muted mb-1">Tổng User</h6>
+                            <p class="card-text fw-bold fs-4 mb-0" th:text="${totalUsers != null ? totalUsers : '0'}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100" style="border-left: 5px solid #ffc107 !important;">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-receipt text-warning fs-1 me-3"></i>
+                        <div>
+                            <h6 class="card-title text-muted mb-1">Hóa đơn tháng này</h6>
+                            <p class="card-text fw-bold fs-4 mb-0" th:text="${totalTransactionsThisMonth != null ? totalTransactionsThisMonth : '0'}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100 bg-danger text-white">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle-fill fs-1 me-3"></i>
+                        <div>
+                            <h6 class="card-title mb-1">User sắp cạn ví (< 50k)</h6>
+                            <p class="card-text fw-bold fs-4 mb-0" th:text="${lowBalanceUsers != null ? lowBalanceUsers.size() : '0'}">0 user</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-lg-7 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-danger fw-bold"><i class="bi bi-bell-fill me-2"></i>Cần chú ý: Danh sách User sắp cạn ví</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">ID</th>
+                                    <th>Tên User</th>
+                                    <th>Số điện thoại</th>
+                                    <th class="text-end pe-3">Số dư hiện tại</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="user : ${lowBalanceUsers}">
+                                    <td class="ps-3 fw-bold text-muted" th:text="${'#' + user.id}"></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-secondary bg-opacity-10 rounded-circle p-2 me-2">
+                                                <i class="bi bi-person text-secondary"></i>
+                                            </div>
+                                            <span class="fw-bold" th:text="${user.username}"></span>
+                                        </div>
+                                    </td>
+                                    <td class="font-monospace" th:text="${user.phone}"></td>
+                                    <td class="text-end pe-3 text-danger fw-bold" th:text="${#numbers.formatInteger(user.walletBalance, 1, 'POINT') + ' VNĐ'}"></td>
+                                </tr>
+                                <tr th:if="${lowBalanceUsers == null or lowBalanceUsers.isEmpty()}">
+                                    <td colspan="4" class="text-center py-4 text-success fw-bold">
+                                        <i class="bi bi-check-circle fs-3 d-block mb-2"></i>
+                                        Tuyệt vời! Không có User nào sắp cạn ví.
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-primary fw-bold"><i class="bi bi-bar-chart-line-fill me-2"></i>Số lượng Hóa đơn 6 tháng qua</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="position: relative; height:300px; width:100%">
+                            <canvas id="barChartDemo"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-lg-7 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-success fw-bold"><i class="bi bi-trophy-fill text-warning me-2"></i>Top 5 Người dùng chi tiêu nhiều nhất</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3 text-center">Top</th>
+                                    <th>Thông tin User</th>
+                                    <th class="text-end pe-4">Tổng chi tiêu</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="sp, iterStat : ${topSpenders}">
+                                    <td class="ps-3 text-center fw-bold fs-5 text-warning" th:text="${'#' + iterStat.count}"></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-3">
+                                                <i class="bi bi-person-fill text-primary"></i>
+                                            </div>
+                                            <span class="fw-bold fs-6" th:text="${sp.username}"></span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-4 text-success fw-bold fs-6" th:text="${#numbers.formatInteger(sp.totalSpent, 1, 'POINT') + ' VNĐ'}"></td>
+                                </tr>
+                                <tr th:if="${topSpenders == null or topSpenders.isEmpty()}">
+                                    <td colspan="3" class="text-center py-4 text-muted">Chưa có dữ liệu giao dịch.</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-dark fw-bold"><i class="bi bi-robot text-info me-2"></i>Tỉ lệ xử lý Hóa đơn AI</h5>
+                    </div>
+                    <div class="card-body d-flex justify-content-center align-items-center">
+                        <div class="chart-container" style="position: relative; height:280px; width:100%">
+                            <canvas id="pieChartDemo"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
+                <h4 class="text-primary fw-bold"><i class="bi bi-cpu-fill me-2"></i>AI Phân Khúc Khách Hàng (Mô hình RFM)</h4>
+                <button class="btn btn-outline-primary fw-bold" onclick="runAiSegmentation()">
+                    <i class="bi bi-magic me-2"></i>Chạy Phân Lớp AI Tự Động
+                </button>
+            </div>
+
+            <div class="col-lg-5 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-dark fw-bold">Tỷ trọng Phân Khúc</h5>
+                    </div>
+                    <div class="card-body d-flex justify-content-center align-items-center">
+                        <div class="chart-container" style="position: relative; height:280px; width:100%">
+                            <canvas id="segmentPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h5 class="card-title text-dark fw-bold">Danh sách dán nhãn AI (Top 10)</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">ID</th>
+                                    <th>Tên User</th>
+                                    <th>Email</th>
+                                    <th class="text-end pe-4">Nhãn AI</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="user : ${segmentedUsers}">
+                                    <td class="ps-3 text-muted" th:text="${'#' + user.id}"></td>
+                                    <td class="fw-bold" th:text="${user.username}"></td>
+                                    <td th:text="${user.email}"></td>
+                                    <td class="text-end pe-4">
+                                        <span th:if="${user.aiLabel == 'VIP'}" class="badge bg-warning text-dark px-3 py-2">VIP</span>
+                                        <span th:if="${user.aiLabel == 'ACTIVE'}" class="badge bg-success px-3 py-2">ACTIVE</span>
+                                        <span th:if="${user.aiLabel == 'AT-RISK'}" class="badge bg-orange px-3 py-2" style="background-color: #fd7e14; color: white;">AT-RISK</span>
+                                        <span th:if="${user.aiLabel == 'CHURN'}" class="badge bg-danger px-3 py-2">CHURN</span>
+                                        <span th:if="${user.aiLabel == null}" class="badge bg-secondary px-3 py-2">Chưa phân lớp</span>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <script th:inline="javascript">
+            document.addEventListener("DOMContentLoaded", function() {
+                // ... (Giữ nguyên toàn bộ code vẽ biểu đồ Bar Chart và Pie Chart ở trên) ...
+                const barChartCanvas = document.getElementById("barChartDemo");
+
+                const labelsReal = /*[[${chartLabels != null ? chartLabels : '["T1", "T2", "T3", "T4", "T5", "T6"]'}]]*/ ["T1", "T2", "T3", "T4", "T5", "T6"];
+                const dataReal = /*[[${chartData != null ? chartData : '[0, 0, 0, 0, 0, 0]'}]]*/ [0, 0, 0, 0, 0, 0];
+
+                const parsedLabels = typeof labelsReal === 'string' ? JSON.parse(labelsReal) : labelsReal;
+                const parsedData = typeof dataReal === 'string' ? JSON.parse(dataReal) : dataReal;
+
+                if (barChartCanvas) {
+                    new Chart(barChartCanvas, {
+                        type: "bar",
+                        data: {
+                            labels: parsedLabels,
+                            datasets: [{
+                                label: "Số lượng Hóa đơn",
+                                data: parsedData,
+                                backgroundColor: "rgba(13, 110, 253, 0.7)",
+                                borderColor: "rgba(13, 110, 253, 1)",
+                                borderWidth: 1,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                        }
+                    });
+                }
+
+                const pieChartCanvas = document.getElementById("pieChartDemo");
+
+                const aiLabelsReal = /*[[${aiLabels != null ? aiLabels : '["Thành công", "Lỗi AI"]'}]]*/ ["Thành công", "Lỗi AI"];
+                const aiDataReal = /*[[${aiData != null ? aiData : '[1, 1]'}]]*/ [1, 1];
+
+                const parsedAiLabels = typeof aiLabelsReal === 'string' ? JSON.parse(aiLabelsReal) : aiLabelsReal;
+                const parsedAiData = typeof aiDataReal === 'string' ? JSON.parse(aiDataReal) : aiDataReal;
+
+                const groupedDataMap = {};
+                for (let i = 0; i < parsedAiLabels.length; i++) {
+                    let label = parsedAiLabels[i];
+                    if (label === "SUCCESS") label = "Thành công";
+                    if (label === "PENDING") label = "Đang xử lý";
+                    if (label === "FAILED") label = "Thất bại";
+
+                    if (groupedDataMap[label]) {
+                        groupedDataMap[label] += parsedAiData[i];
+                    } else {
+                        groupedDataMap[label] = parsedAiData[i];
+                    }
+                }
+
+                const finalLabels = Object.keys(groupedDataMap);
+                const finalData = Object.values(groupedDataMap);
+
+                const colorMap = {
+                    "Thành công": "#198754",
+                    "Đang xử lý": "#ffc107",
+                    "Thất bại": "#dc3545",
+                    "Lỗi AI": "#dc3545"
+                };
+
+                const dynamicColors = finalLabels.map(label => colorMap[label] || "#6c757d");
+
+                if (pieChartCanvas) {
+                    new Chart(pieChartCanvas, {
+                        type: "doughnut",
+                        data: {
+                            labels: finalLabels,
+                            datasets: [{
+                                data: finalData,
+                                backgroundColor: dynamicColors,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' }
+                            }
+                        }
+                    });
+                }
+            });
+
+            const segmentPieCanvas = document.getElementById("segmentPieChart");
+            const vipCount = /*[[${vipCount != null ? vipCount : 0}]]*/ 0;
+            const activeCount = /*[[${activeCount != null ? activeCount : 0}]]*/ 0;
+            const atRiskCount = /*[[${atRiskCount != null ? atRiskCount : 0}]]*/ 0;
+            const churnCount = /*[[${churnCount != null ? churnCount : 0}]]*/ 0;
+
+            if (segmentPieCanvas) {
+                new Chart(segmentPieCanvas, {
+                    type: "pie",
+                    data: {
+                        labels: ["VIP", "ACTIVE", "AT-RISK", "CHURN"],
+                        datasets: [{
+                            data: [vipCount, activeCount, atRiskCount, churnCount],
+                            backgroundColor: ["#ffc107", "#198754", "#fd7e14", "#dc3545"],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right' } }
+                    }
+                });
+            }
+
+            // --- ĐÂY LÀ PHẦN CODE ĐÃ ĐƯỢC FIX ---
+            window.runAiSegmentation = function() {
+                Swal.fire({
+                    title: 'Chạy phân lớp AI?',
+                    text: "Hệ thống sẽ gửi dữ liệu sang máy chủ Python (K-Means) để phân tích lại toàn bộ User. Việc này có thể mất vài giây.",
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0d6efd',
+                    cancelButtonColor: '#dc3545',
+                    confirmButtonText: '<i class="bi bi-play-fill"></i> Chạy ngay',
+                    cancelButtonText: 'Hủy'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+
+                        Swal.fire({
+                            title: 'Đang xử lý...',
+                            html: 'AI đang phân tích mô hình RFM, vui lòng chờ!',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading()
+                            }
+                        });
+
+                        // 2. Lấy tự động mã bảo vệ CSRF Token của Spring Security
+                        var csrfToken = /*[[${_csrf != null ? _csrf.token : ''}]]*/ '';
+                        var csrfHeader = /*[[${_csrf != null ? _csrf.headerName : ''}]]*/ '';
+
+                        var headersConfig = {
+                            'Content-Type': 'application/json'
+                        };
+                        if (csrfToken && csrfHeader) {
+                            headersConfig[csrfHeader] = csrfToken; // Gắn vũ khí vượt ải bảo vệ
+                        }
+
+                        // Gửi Request sang Java
+                        fetch('/admin/ajax/segmentation/run', {
+                            method: 'POST',
+                            headers: headersConfig
+                        })
+                            .then(response => {
+                                // Chặn lỗi văng mã HTML khi Java báo lỗi 403/500
+                                if (!response.ok) throw new Error("HTTP Status " + response.status);
+                                return response.json();
+                            })
+                            .then(data => {
+                                if(data.code === 200) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Hoàn tất!',
+                                        text: 'Phân lớp khách hàng thành công. Đang tải lại dữ liệu...',
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire('Lỗi phân tích!', data.message, 'error');
+                                }
+                            })
+                            .catch(err => {
+                                Swal.fire('Lỗi kết nối!', 'Không thể gọi đến máy chủ. Hãy kiểm tra Backend hoặc AI Service. Chi tiết: ' + err, 'error');
+                            });
+                    }
+                });
+            };
+        </script>
+    </div>
+</div>
+</body>
+</html>
