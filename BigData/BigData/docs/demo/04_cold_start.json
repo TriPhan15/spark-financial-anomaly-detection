@@ -1,0 +1,9 @@
+{
+  "current": {"amount": 5000000, "occurredAt": "2026-10-06T12:15:00", "category": "Ăn uống"},
+  "history": [
+    {"amount": 48000, "occurredAt": "2026-10-05T12:10:00", "category": "Ăn uống"},
+    {"amount": 51000, "occurredAt": "2026-10-04T12:10:00", "category": "Ăn uống"},
+    {"amount": 320000, "occurredAt": "2026-10-04T17:30:00", "category": "Đi chợ"},
+    {"amount": 54000, "occurredAt": "2026-10-03T12:10:00", "category": "Ăn uống"}
+  ]
+}
