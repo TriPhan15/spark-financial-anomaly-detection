@@ -60,7 +60,7 @@ Build the app with `--dart-define=FRAUD_API_URL=http://<host>:8001` (base URL, n
 
 ## Limitations
 
-Sparkov is simulated data: labelled personal spending data is not public. The HDFS cluster has one datanode (replication 1) because it runs on one machine. In the app, the Sparkov "fraud" label is presented as spending that departs from the user's habits.
+Sparkov is simulated data: labelled personal spending data is not public. HDFS has two datanodes (replication 2) and Spark one worker, but they all run on one physical machine. The 14.8-million-row scaling test uses replicated copies and measures time only. In the app, the Sparkov "fraud" label is presented as spending that departs from the user's habits.
 
 ## Scaling benchmark
 

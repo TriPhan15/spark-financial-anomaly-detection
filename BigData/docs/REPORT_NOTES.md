@@ -133,9 +133,9 @@ Kích thước 8 bản: 14.819.152 dòng; CSV 4,08 GB; Parquet 1,20 GB (nhỏ h�
 
 Nhận xét:
 
-- **Khối lượng:** dữ liệu tăng 8 lần (0,5 → 4,08 GB) thì tổng thời gian tăng 6,5 lần (95 → 614 s). Thông lượng không giảm mà tăng từ khoảng 19,5 nghìn lên 24,1 nghìn dòng/giây, vì chi phí cố định (khởi động job, lập lịch) được chia cho nhiều dữ liệu hơn. Mốc 2 bản chậm hơn đường tuyến tính (235,6 s so với khoảng 170 s), có thể do số partition và việc tràn bộ nhớ ra đĩa; từ 4 bản trở đi đường thực tế nằm dưới đường tuyến tính.
+- **Khối lượng:** dữ liệu tăng 8 lần (0,5 → 4,08 GB) thì tổng thời gian tăng 6,5 lần (95 → 614 s). Thông lượng giảm ở mốc 2 bản (15,0 nghìn dòng/giây, chậm hơn đường tuyến tính: 235,6 s so với khoảng 170 s, có thể do số partition và việc tràn bộ nhớ ra đĩa), rồi tăng lại từ mốc 4 bản và đạt 24,1 nghìn dòng/giây ở mốc 8 bản, cao hơn mức 19,5 nghìn của mốc 1 bản, vì chi phí cố định (khởi động job, lập lịch) được chia cho nhiều dữ liệu hơn. Mốc 4 bản xấp xỉ tuyến tính (341,3 s so với 340,4 s), mốc 8 bản nằm dưới rõ rệt (590,0 s so với 680,8 s).
 - **Song song hóa:** cùng 7,4 triệu dòng, 1 → 2 → 4 core cho thời gian 1153 → 604 → 358 s, tăng tốc 1,91 và 3,23 lần. Hiệu suất 4 core khoảng 81%, phần còn lại là shuffle và đọc HDFS.
-- **Định dạng:** Parquet nhỏ hơn CSV 3,4 lần trên HDFS, đọc nhanh hơn 2,1 lần ở mốc 8 bản (11,0 so với 23,5 s), tổng nhanh hơn khoảng 8%, vì bước tính cửa sổ (sort theo chủ thẻ và thời gian) chiếm phần lớn thời gian.
+- **Định dạng:** Parquet nhỏ hơn CSV 3,4 lần trên HDFS, bước đọc và đếm dòng nhanh hơn 2,1 lần ở mốc 8 bản (11,0 so với 23,5 s; bước đặc trưng đọc lại dữ liệu nên thời gian đặc trưng cũng gồm một lượt đọc), tổng nhanh hơn khoảng 8%, vì bước tính cửa sổ (sort theo chủ thẻ và thời gian) chiếm phần lớn thời gian.
 - Biểu đồ: `artifacts/charts/6_scale_volume.png`, `7_csv_vs_parquet.png`, `8_scale_cores.png`.
 
 ## 8. Giới hạn (nên nêu chủ động trong báo cáo)

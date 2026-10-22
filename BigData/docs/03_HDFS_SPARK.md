@@ -44,7 +44,7 @@ Script làm các bước sau, tất cả qua `docker compose exec -T namenode`:
 
 `/staging/...` là thư mục được compose mount từ máy vào container namenode, chế độ chỉ đọc. Dữ liệu đi từ ổ đĩa máy vào namenode client, rồi được ghi thành block trên datanode.
 
-Lưu ý: compose không khai báo volume cho dữ liệu HDFS. `docker compose stop` rồi `start` thì dữ liệu còn. `docker compose down` xóa container và mất dữ liệu HDFS, khi đó phải chạy lại `hdfs_load.sh`.
+Lưu ý: dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1`, `hdfs-data2`, nên `stop`/`start` và cả `down` đều giữ dữ liệu. Chỉ `docker compose down -v` mới xóa volume, khi đó phải chạy lại `hdfs_load.sh`. Lần đầu nâng cấp lên phiên bản có volume này cũng phải chạy lại `hdfs_load.sh` một lần.
 
 ### Bằng chứng cần chụp
 
