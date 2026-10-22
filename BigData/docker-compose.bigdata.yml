@@ -1,5 +1,5 @@
 # Coursework Big Data stack, separate from the production docker-compose.yml at the repo root.
-#   HDFS  : namenode + datanode (single node, replication 1)  UI http://localhost:9870
+#   HDFS  : namenode + 2 datanodes (replication 2), data kept in named volumes  UI http://localhost:9870
 #   Spark : standalone master + worker                         UI http://localhost:8080
 #   API   : FastAPI serving Model A (/predict-fraud) and Model B (/v2/predict-anomaly) on :8001
 # This folder is bind-mounted at /workspace in the Spark containers so jobs can read the code and
@@ -11,18 +11,35 @@ services:
     command: ["hdfs", "namenode"]
     ports:
       - "9870:9870"
+    # root so the process can write the named volume, which Docker creates owned by root.
+    user: root
     env_file: ./hadoop.env
     environment:
-      ENSURE_NAMENODE_DIR: "/tmp/hadoop-hadoop/dfs/name"
+      ENSURE_NAMENODE_DIR: "/hadoop/dfs/name"
     volumes:
+      - hdfs-name:/hadoop/dfs
       - ./data:/staging/sparkov:ro
-      - ./creditcard.csv:/staging/creditcard/creditcard.csv:ro
+      - ./data/creditcard.csv:/staging/creditcard/creditcard.csv:ro
 
   datanode:
     image: apache/hadoop:3.4.1
     hostname: datanode
     command: ["hdfs", "datanode"]
+    user: root
     env_file: ./hadoop.env
+    volumes:
+      - hdfs-data1:/hadoop/dfs
+    depends_on:
+      - namenode
+
+  datanode2:
+    image: apache/hadoop:3.4.1
+    hostname: datanode2
+    command: ["hdfs", "datanode"]
+    user: root
+    env_file: ./hadoop.env
+    volumes:
+      - hdfs-data2:/hadoop/dfs
     depends_on:
       - namenode
 
@@ -62,3 +79,8 @@ services:
     ports:
       - "8001:8001"
     profiles: ["api"]
+
+volumes:
+  hdfs-name:
+  hdfs-data1:
+  hdfs-data2:

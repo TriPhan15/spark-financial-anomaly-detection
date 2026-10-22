@@ -4,6 +4,8 @@ Coursework module for "Phát hiện giao dịch tài chính bất thường (tí
 
 Diagrams: `docs/architecture/`. Report notes with all numbers: `docs/REPORT_NOTES.md`.
 
+HDFS now runs two datanodes with replication 2 and keeps its data in the named volumes `hdfs-name`, `hdfs-data1` and `hdfs-data2`, so `docker compose down` no longer loses it (`down -v` does). The volumes are new in this version: after upgrading, run `hdfs_load.sh` once more.
+
 ## Two models
 
 | | Model A (benchmark) | Model B (used by the app) |
@@ -18,12 +20,14 @@ Model A cannot score receipts: the app has no V1..V28. `train_pipeline.py --zero
 
 ## Run everything
 
-Prerequisites: Docker with about 8 GB of memory, the CSV files in `data/fraudTrain.csv`, `data/fraudTest.csv` and `creditcard.csv` (Kaggle downloads, not committed). On Git Bash for Windows, prefix the scripts with `MSYS_NO_PATHCONV=1`.
+Prerequisites: Docker with about 8 GB of memory, the CSV files in `data/fraudTrain.csv`, `data/fraudTest.csv` and `data/creditcard.csv` (Kaggle downloads, not committed). On Git Bash for Windows, prefix the scripts with `MSYS_NO_PATHCONV=1`.
 
 ```bash
 cd BigData
-docker compose -f docker-compose.bigdata.yml up -d --build   # namenode, datanode, spark-master, spark-worker
+bash scripts/preflight.sh                                    # stops if a Kaggle CSV is missing
+docker compose -f docker-compose.bigdata.yml up -d --build   # namenode, datanode, datanode2, spark-master, spark-worker
 bash scripts/hdfs_load.sh                                   # put the CSVs into hdfs:///data, print listing + fsck
+bash scripts/hdfs_fault_demo.sh                             # stop datanode2, data still readable (replication 2)
 bash scripts/train_on_cluster.sh behavior                   # Model B (about 6 minutes)
 bash scripts/train_on_cluster.sh creditcard                 # Model A + zero-PCA ablation
 docker compose -f docker-compose.bigdata.yml exec -T -w /workspace -e HOME=/tmp spark-master \
@@ -57,3 +61,12 @@ Build the app with `--dart-define=FRAUD_API_URL=http://<host>:8001` (base URL, n
 ## Limitations
 
 Sparkov is simulated data: labelled personal spending data is not public. The HDFS cluster has one datanode (replication 1) because it runs on one machine. In the app, the Sparkov "fraud" label is presented as spending that departs from the user's habits.
+
+## Scaling benchmark
+
+Timing only: the copies are replicated Sparkov rows with new card ids, never used for accuracy.
+
+```bash
+bash scripts/train_on_cluster.sh scale        # 8 copies on HDFS as CSV and Parquet (replication 1), prints sizes
+bash scripts/run_scale_benchmark.sh 2>&1 | tee scale_run.log   # 10 runs, appends artifacts/scale/results.jsonl
+```

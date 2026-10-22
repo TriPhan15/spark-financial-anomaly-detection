@@ -59,7 +59,7 @@ def habit_history(now: datetime, days: int = 30) -> list[dict]:
 
 
 def model_a_checks(base: str) -> None:
-    csv_path = ROOT / "creditcard.csv"
+    csv_path = next((path for path in (ROOT / "data" / "creditcard.csv", ROOT / "creditcard.csv") if path.is_file()), ROOT / "data" / "creditcard.csv")
     if not csv_path.is_file():
         check("Model A real fraud row", False, "creditcard.csv not found")
         return
