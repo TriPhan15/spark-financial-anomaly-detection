@@ -1,6 +1,6 @@
 # Hướng dẫn cho nhóm: hệ thống phát hiện chi tiêu bất thường (Big Data)
 
-Tài liệu này dành cho các thành viên cần nắm toàn bộ phần Big Data của DonutPay trước buổi bảo vệ. Đọc xong bạn phải trả lời được ba câu: hệ thống có những tính năng gì, các khối nối với nhau ra sao, và mỗi tiêu chí trong barem được chứng minh bằng cái gì. Số liệu lấy từ các file kết quả trong repo (`artifacts/behavior/metrics_behavior.json`, `metrics.json`) và khớp với báo cáo Word. Chi tiết số liệu đầy đủ nằm ở `docs/REPORT_NOTES.md`.
+Tài liệu này dành cho các thành viên cần nắm toàn bộ phần Big Data của DonutPay trước buổi bảo vệ. Đọc xong bạn phải trả lời được ba câu: hệ thống có những tính năng gì, các khối nối với nhau ra sao, và mỗi tiêu chí trong barem được chứng minh bằng cái gì. Số liệu lấy từ các file kết quả trong repo (`artifacts/behavior/metrics_behavior.json`, `metrics.json`, `artifacts/scale/results.jsonl`) và khớp với báo cáo Word. Chi tiết số liệu đầy đủ nằm ở `docs/REPORT_NOTES.md`.
 
 ## 1. Bài toán và phạm vi
 
@@ -18,12 +18,14 @@ Ba điều cần nhớ khi trả lời hội đồng:
 
 | Tính năng | Chi tiết |
 |---|---|
-| Lưu trữ HDFS thật | Namenode và datanode chạy bằng Docker (image Hadoop 3.4.1). Dữ liệu gốc 622,2 MB nằm ở `hdfs:///data/`, khối 128 MB, `fsck` báo HEALTHY. Chỉ có một datanode vì chạy trên một máy. |
+| Lưu trữ HDFS thật | Một namenode và hai datanode chạy bằng Docker (image Hadoop 3.4.1), replication 2, dữ liệu giữ trong named volume nên `docker compose down` không mất. Dữ liệu gốc 622,2 MB nằm ở `hdfs:///data/`, khối 128 MB, `fsck` báo HEALTHY. |
+| Chịu lỗi | `scripts/hdfs_fault_demo.sh` dừng `datanode2`: namenode báo Live 1, Dead 1, dữ liệu vẫn đọc được, `fsck` báo 0 block bị mất. |
 | Cụm Spark | Spark 4.0.1 standalone, một master và một worker 4 core. Spark đọc thẳng từ HDFS, không qua ổ đĩa cục bộ. |
 | Đặc trưng hành vi bằng hàm cửa sổ | Với mỗi giao dịch, Spark so với tối đa 100 giao dịch trước đó của cùng người dùng (`Window.partitionBy` kèm `filter`, `aggregate`, `slice`). Chạy phân tán trên 1,85 triệu dòng. |
 | Xử lý mất cân bằng | Class weight 182,6 cho lớp gian lận ở mô hình B (577,9 ở mô hình A). |
 | Chia dữ liệu theo thời gian | Không xáo trộn. Train 1.162.460 dòng (6.333 gian lận), validation 129.300 dòng, test 555.639 dòng. Mốc cắt validation: 2020-05-02. |
 | Phân tích khám phá | Notebook `behavior_anomaly_pipeline.ipynb` dùng `groupBy` phân tán, chỉ đưa số liệu tổng hợp về driver để vẽ biểu đồ: ba biểu đồ phân tích khám phá (Hình 3.5 đến 3.7) và hai biểu đồ đánh giá mô hình (Hình 3.8, 3.9). |
+| Thí nghiệm mở rộng | Sparkov nhân thành 8 bản: 14.819.152 dòng, CSV 4,08 GB, Parquet 1,20 GB. 10 lượt đo đều chạy xong. Dữ liệu tăng 8 lần thì thời gian tăng 6,5 lần; cùng 4 bản, 1, 2, 4 core mất 1153,2, 603,7, 357,5 giây (tăng tốc 1,91 và 3,23 lần). Biểu đồ Hình 3.11 đến 3.13. Chỉ đo thời gian, không đo độ chính xác. |
 
 ### 2.2 Hai mô hình, hai vai trò
 
@@ -90,7 +92,7 @@ flowchart LR
         AI["ai-service :8000<br/>DONUT OCR"]
     end
     subgraph BD["Khối Big Data (compose riêng)"]
-        NN["HDFS namenode<br/>+ datanode"]
+        NN["HDFS namenode<br/>+ 2 datanode"]
         SP["Spark 4.0.1<br/>master + worker"]
         MODEL[("Mô hình A, B<br/>PipelineModel")]
         API["fraud-api<br/>FastAPI :8001"]
@@ -128,7 +130,7 @@ Cùng một công thức đặc trưng được cài hai lần: bằng Spark đ�
 - Thời gian là datetime cục bộ không có múi giờ, hai phía đều đọc như UTC.
 - Danh mục tiếng Việt của app được ánh xạ sang 14 danh mục Sparkov bằng từ khóa (so khớp từ nguyên vẹn). Danh mục không khớp rơi vào `misc_pos`.
 
-Đổi bất kỳ đặc trưng nào thì phải huấn luyện lại và chạy lại `scripts/e2e_check.py`. Script này phát lại 30 mẫu do Spark tính, và đặc trưng cùng xác suất phải khớp tuyệt đối.
+Đổi bất kỳ đặc trưng nào thì phải huấn luyện lại và chạy lại `scripts/e2e_check.py`. Script này phát lại 30 mẫu do Spark tính, và đặc trưng cùng xác suất phải khớp (sai lệch không quá 1e-6).
 
 ## 4. Các luồng chính
 
@@ -190,10 +192,10 @@ Barem là rubric chung, thang 10, 6 tiêu chí. Đồ án chấm hai giai đoạ
 | Tiêu chí | Điểm | Bằng chứng | Chỗ xem |
 |---|---|---|---|
 | Tính ứng dụng của kỹ thuật (CLO1) | 1,0 | Kỹ thuật Big Data giải một bài toán cụ thể và nối vào ứng dụng thật, lỗi dịch vụ không làm hỏng việc lưu | App, API, mục 4.2 của tài liệu này |
-| Lưu trữ và xử lý dữ liệu (CLO2) | 2,0 | HDFS thật 622,2 MB, `fsck` HEALTHY, Spark đọc từ HDFS, hàm cửa sổ trên 1,85 triệu dòng, chia theo thời gian, xử lý mất cân bằng | `scripts/hdfs_load.sh`, `train_behavior.py`, UI 9870 và 8080 |
+| Lưu trữ và xử lý dữ liệu (CLO2) | 2,0 | HDFS thật 622,2 MB, 2 datanode, replication 2, tắt 1 datanode vẫn đọc được, `fsck` HEALTHY, Spark đọc từ HDFS, hàm cửa sổ trên 1,85 triệu dòng, thí nghiệm mở rộng tới 14,8 triệu dòng, CSV so với Parquet, chia theo thời gian, xử lý mất cân bằng | `scripts/hdfs_load.sh`, `scripts/hdfs_fault_demo.sh`, `train_behavior.py`, `artifacts/scale/results.jsonl`, UI 9870 và 8080 |
 | Mô hình và công nghệ (CLO3) | 2,5 | Hai mô hình có vai trò riêng, so sánh RF, GBT, luật; chọn mô hình và ngưỡng trên validation; thí nghiệm điền 0; xác suất của API khớp Spark | `metrics_behavior.json`, `metrics.json`, `e2e_check.py` |
-| Trực quan hóa và ứng dụng (CLO3) | 2,5 | Ba biểu đồ phân tích khám phá và hai biểu đồ đánh giá mô hình, Swagger, hộp thoại cảnh báo, nút bút chì, banner, thẻ AI, màn hình nghi vấn có biểu đồ | Notebook, `mobile-app/lib/screens/` |
-| Trình bày báo cáo (CLO4) | 1,0 | Năm chương, danh mục hình bảng, phần hạn chế nêu thẳng, phụ lục chạy lại | `Nhom7_BigData.docx` (không đưa lên git) |
+| Trực quan hóa và ứng dụng (CLO3) | 2,5 | Ba biểu đồ phân tích khám phá, hai biểu đồ đánh giá mô hình và ba biểu đồ thí nghiệm mở rộng, Swagger, hộp thoại cảnh báo, nút bút chì, banner, thẻ AI, màn hình nghi vấn có biểu đồ | Notebook, `mobile-app/lib/screens/` |
+| Trình bày báo cáo (CLO4) | 1,0 | Năm chương, danh mục hình bảng, phần hạn chế nêu thẳng, phụ lục chạy lại | `NhomA7_BigData.docx` (không đưa lên git) |
 | Phân công và phối hợp (CLO5) | 1,0 | Phụ lục A: bảng phân công và ma trận đánh giá chéo | Nhóm tự hoàn thiện |
 
 ## 6. Cách chạy lại hệ thống
@@ -204,6 +206,7 @@ Chạy từ thư mục `BigData`. Trên Git Bash cho Windows, thêm `MSYS_NO_PAT
 # 1. HDFS và Spark (cần khoảng 8 GB RAM)
 docker compose -f docker-compose.bigdata.yml up -d --build
 bash scripts/hdfs_load.sh                      # nạp CSV, in dung lượng và fsck
+bash scripts/hdfs_fault_demo.sh                # tắt datanode2, dữ liệu vẫn đọc được, rồi bật lại
 
 # 2. Huấn luyện
 bash scripts/train_on_cluster.sh behavior      # mô hình B
@@ -274,8 +277,8 @@ Cần chạy rồi điền kết quả vào Bảng 4.2 của báo cáo. Thứ t�
 Nêu thẳng những điều này khi hội đồng hỏi, đừng để họ phát hiện trước.
 
 - Dữ liệu huấn luyện là mô phỏng, thói quen người dùng Việt Nam có thể khác. Kết quả chưa kiểm chứng trên dữ liệu chi tiêu thật.
-- PR-AUC 0,654 và Precision 0,591 nghĩa là khoảng 4 trong 10 cảnh báo là nhầm và khoảng 33% bất thường bị bỏ sót.
-- Hạ tầng một nút: một datanode (replication 1) và một worker. Khả năng chịu lỗi và mở rộng ngang chưa được kiểm chứng.
+- PR-AUC 0,654 là mức vừa phải. Precision 0,591 nghĩa là khoảng 4 trong 10 cảnh báo là nhầm, Recall 0,671 nghĩa là khoảng 33% bất thường bị bỏ sót.
+- Hạ tầng một máy: HDFS có hai datanode (replication 2) và Spark một worker, nhưng tất cả là container trên cùng một máy vật lý. Đã thử tắt một datanode, nhưng chưa đo được độ trễ mạng và mở rộng ngang trên nhiều máy thật. Thí nghiệm 14,8 triệu dòng dùng dữ liệu nhân bản, chỉ đo thời gian.
 - Ánh xạ danh mục bằng từ khóa, nên danh mục lạ rơi vào `misc_pos`.
 - Mô hình bỏ lọt khai khống ở danh mục ăn uống, nên có luật chặn. Luật chặn làm một phần cảnh báo không còn đến từ mô hình, và ngưỡng 10 lần chưa kiểm chứng. Khoản chi dưới 10 lần mức trung bình ở những danh mục như ăn uống vẫn có thể lọt (với người dùng thử nghiệm chi trung bình khoảng 108 nghìn, bữa trưa 1 triệu chưa bị gắn cờ).
 - Cảnh báo chỉ mang tính tư vấn. Hệ thống lõi không xét điểm rủi ro, nên ai gọi thẳng API tạo giao dịch vẫn lưu được số tiền khai khống. Điểm số không được lưu nên chưa có lịch sử "đã cảnh báo lúc nào".
@@ -283,12 +286,14 @@ Nêu thẳng những điều này khi hội đồng hỏi, đừng để họ ph
 
 ## 9. Việc còn lại trước khi nộp
 
-- Chụp ảnh nút bút chì cho Hình 4.3 trong báo cáo.
-- Chụp lại ảnh kết quả `e2e_check.py` (Hình 4.8), vì ảnh cũ là bản 18/18 và bản hiện tại là 20/20.
-- Chạy 9 kịch bản thủ công ở mục 7.2 và điền Bảng 4.2.
-- Cập nhật mục lục và danh mục hình, bảng trong Word (Ctrl+A rồi F9).
-- Báo cáo cần nhắc luật chặn thói quen và lý do tồn tại của nó.
-- Hoàn thiện Phụ lục A: phân công và đánh giá chéo.
+Đã xong: HDFS hai datanode và demo tắt một datanode (Hình 3.10), thí nghiệm mở rộng và biểu đồ Hình 3.11 đến 3.15, luật chặn thói quen đã có trong mục 3.4 của báo cáo, Phụ lục A đã có bảng phân công và đánh giá chéo.
+
+Còn lại:
+
+- Cập nhật mục lục và danh mục hình, bảng trong Word (Ctrl+A rồi F9). Mục lục hiện chưa có mục 3.9 (thí nghiệm mở rộng), mục đối chiếu tiêu chí ở chương 5, Hình 3.10 đến 3.15, Bảng 3.4 và Bảng 5.1.
+- Kiểm tra ảnh kết quả `e2e_check.py` (nay là Hình 4.7) là bản 20/20, không phải bản 18/18 cũ.
+- Ảnh nút bút chì: Hình 4.3 hiện là sơ đồ luồng ba đường nhập, nếu muốn có ảnh nút bút chì thì chèn thêm hình ở mục 4.2.
+- Chạy 9 kịch bản thủ công ở mục 7.2. Bảng 4.2 hiện mới ghi kết quả mong đợi.
 
 ## 10. Bản đồ mã nguồn
 

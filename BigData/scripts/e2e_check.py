@@ -141,7 +141,7 @@ def main() -> int:
     late_night = now.replace(hour=23, minute=40)
     status, body, _ = call(base, "POST", "/v2/predict-anomaly", {"current": {"amount": 1_200_000, "occurredAt": iso(late_night), "category": "Mua sắm online"}, "history": history})
     check(
-        "late-night online purchase ~20x the usual spend is an anomaly with an explanation",
+        "late-night online purchase ~11x the usual spend is an anomaly with an explanation",
         status == 200 and body["isAnomaly"] is True and bool(body["explanation"]),
         f"risk={body.get('riskScore')} explanation={body.get('explanation')}",
     )

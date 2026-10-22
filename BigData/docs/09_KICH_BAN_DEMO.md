@@ -1,6 +1,6 @@
 # 09. Kịch bản quay video demo
 
-Video đi qua toàn bộ phần Big Data theo đúng luồng dữ liệu: HDFS, Spark, mô hình, API, rồi ứng dụng. Mỗi cảnh có: mục tiêu, thao tác, thứ phải thấy trên màn hình, và lời đọc. Thời lượng dự kiến khoảng 15 phút sau khi cắt.
+Video đi qua toàn bộ phần Big Data theo đúng luồng dữ liệu: HDFS, Spark, mô hình, API, rồi ứng dụng. Mỗi cảnh có: mục tiêu, thao tác, thứ phải thấy trên màn hình, và lời đọc. Thời lượng dự kiến khoảng 20 phút sau khi cắt (xem bảng thời lượng ở cuối).
 
 Các kết quả ghi trong tài liệu này đã được chạy thử trên API thật ngày 15/10/2026 (mô hình `behavior-gbt-2026-10-07`). Phần app được tính trước bằng cách gửi đúng dữ liệu mà `seed_demo_history.py` tạo ra.
 
@@ -18,7 +18,7 @@ Các kết quả ghi trong tài liệu này đã được chạy thử trên API
 
 Quay thành hai phần vì Spark master và core-backend cùng dùng cổng 8080:
 
-- Phần A (cảnh 1 đến 5): cụm HDFS và Spark. Core-backend phải tắt.
+- Phần A (cảnh 1 đến 5b): cụm HDFS và Spark. Core-backend phải tắt.
 - Phần B (cảnh 6 đến 11): API và ứng dụng. Cụm Spark tắt, core-backend và `fraud-api` bật.
 
 ### 0.3 Việc làm trước khi bấm quay
@@ -27,7 +27,7 @@ Phần A:
 
 ```bash
 cd BigData
-ls data/fraudTrain.csv data/fraudTest.csv creditcard.csv      # phải có đủ 3 file
+bash scripts/preflight.sh                                     # phải in "preflight ok" (đủ 3 file trong data/)
 docker compose -f docker-compose.bigdata.yml up -d --build    # chạy trước một lần cho image sẵn
 ```
 
@@ -36,7 +36,7 @@ Mở sẵn trong trình duyệt: http://localhost:9870, http://localhost:8080, f
 Phần B (làm sau khi quay xong phần A):
 
 ```bash
-docker compose -f docker-compose.bigdata.yml stop spark-master spark-worker namenode datanode
+docker compose -f docker-compose.bigdata.yml stop spark-master spark-worker namenode datanode datanode2
 docker compose -f docker-compose.bigdata.yml --profile api up -d fraud-api
 # core-backend (từ gốc repo, cần file .env, xem 08_KIEM_THU_VAN_HANH.md mục 5)
 docker compose up -d db redis && docker compose up -d --no-deps core-api
@@ -44,7 +44,7 @@ docker compose up -d db redis && docker compose up -d --no-deps core-api
 
 - Tạo một tài khoản demo mới, nạp số dư ví đủ lớn (khoảng 50 triệu; trên môi trường cục bộ có thể đặt thẳng cột `wallet_balance` trong PostgreSQL), vì mỗi khoản chi được lưu qua checkout sẽ trừ ví. Rồi chạy đúng một lần:
   `python BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>`.
-  Script phải in `Created 41/41 transactions`. Không chạy hai lần, vì lịch sử sẽ khác với dự tính trong kịch bản.
+  Script phải in `Created 41/41 transactions` (hoặc `42/42`, tùy thứ trong tuần của ngày chạy). Không chạy hai lần, vì lịch sử sẽ khác với dự tính trong kịch bản.
 - Điện thoại: `adb reverse tcp:8080 tcp:8080`, `adb reverse tcp:8001 tcp:8001`, rồi `flutter run --dart-define=API_BASE=http://localhost:8080 --dart-define=FRAUD_API_URL=http://localhost:8001`. Đăng nhập tài khoản demo.
 - Trong máy điện thoại có sẵn một ảnh hóa đơn bất kỳ trong thư viện ảnh.
 - Mở sẵn http://localhost:8001/docs và thư mục `BigData/docs/demo/` trong VS Code.
@@ -77,9 +77,9 @@ docker compose -f docker-compose.bigdata.yml up -d
 docker compose -f docker-compose.bigdata.yml ps
 ```
 
-Phải thấy: 4 container `namenode`, `datanode`, `spark-master`, `spark-worker` đang chạy.
+Phải thấy: 5 container `namenode`, `datanode`, `datanode2`, `spark-master`, `spark-worker` đang chạy.
 
-> Toàn bộ hạ tầng chạy bằng Docker Compose, tách riêng khỏi hệ thống chính. Có bốn container: namenode và datanode của HDFS dùng Hadoop 3.4.1, và một Spark master cùng một worker 4 nhân, 3 GB dùng Spark 4.0.1.
+> Toàn bộ hạ tầng chạy bằng Docker Compose, tách riêng khỏi hệ thống chính. Có năm container: một namenode và hai datanode của HDFS dùng Hadoop 3.4.1, một Spark master và một worker 4 nhân, 3 GB dùng Spark 4.0.1. Dữ liệu HDFS nằm trong named volume nên không mất khi dừng container.
 
 ### Cảnh 3. Nạp dữ liệu lên HDFS (khoảng 1 phút 30 giây)
 
@@ -89,13 +89,31 @@ Thao tác:
 MSYS_NO_PATHCONV=1 bash scripts/hdfs_load.sh
 ```
 
-Khi chạy xong, cuộn lên chỉ vào ba chỗ: danh sách file, dòng `622.2 M`, dòng `The filesystem under path '/data' is HEALTHY`.
+Khi chạy xong, cuộn lên chỉ vào ba chỗ: danh sách file, dòng `622.2 M` của lệnh `du` (cột thứ hai là dung lượng tính cả hai bản sao), dòng `The filesystem under path '/data' is HEALTHY`.
 
-Chuyển sang http://localhost:9870, vào Utilities > Browse the file system > `data` > `sparkov`. Chỉ vào cột Block Size (128 MB) và Replication (1). Bấm vào `fraudTrain.csv` để hiện danh sách block.
+Chuyển sang http://localhost:9870, vào Utilities > Browse the file system > `data` > `sparkov`. Chỉ vào cột Block Size (128 MB) và Replication (2). Bấm vào `fraudTrain.csv` để hiện danh sách block.
 
 > Script nạp ba file CSV lên HDFS. Hai file Sparkov gồm 1,85 triệu giao dịch thẻ có nhãn gian lận, dùng để huấn luyện mô hình chính. File thứ ba là bộ Credit Card của Kaggle, dùng làm mô hình đối chứng.
-> Tổng dung lượng trên HDFS là 622 MB. Lệnh fsck báo hệ thống tệp khỏe mạnh.
-> Trên giao diện namenode, file được chia thành các block 128 MB. Vì chạy trên một máy nên chỉ có một datanode và hệ số nhân bản là 1. Kiến trúc giữ nguyên khi thêm datanode.
+> Dữ liệu gốc là 622 MB, chiếm khoảng gấp đôi trên đĩa vì mỗi block được lưu hai bản. Lệnh fsck báo hệ thống tệp khỏe mạnh.
+> Trên giao diện namenode, file được chia thành các block 128 MB, hệ số nhân bản là 2: mỗi block có một bản trên datanode và một bản trên datanode2.
+
+### Cảnh 3b. Tắt một datanode (khoảng 1 phút 15 giây sau khi cắt)
+
+Thao tác:
+
+```bash
+MSYS_NO_PATHCONV=1 bash scripts/hdfs_fault_demo.sh
+```
+
+Script dừng `datanode2`, chờ 100 giây để namenode đánh dấu node đó đã chết, kiểm tra, rồi bật lại `datanode2` ở cuối. Khi dựng video, cắt đoạn chờ.
+
+Phải thấy:
+
+- Trước khi tắt: `Live datanodes (2)`, mỗi block của `/data/sparkov` có `Live_repl=2`.
+- Sau khi tắt: `Live datanodes (1)`, `Dead datanodes (1)`; ba dòng đầu của `fraudTest.csv` vẫn in ra; fsck báo `Status: HEALTHY`, `Missing blocks: 0`, và toàn bộ block là under-replicated.
+
+> Với hai datanode và hệ số nhân bản 2, mỗi block có một bản trên mỗi node. Script tắt datanode thứ hai và chờ namenode xác nhận node đó đã chết, mất khoảng 90 giây.
+> File vẫn đọc được từ bản còn lại. fsck báo các block đang thiếu bản sao nhưng không mất block nào. Khi datanode2 chạy lại, nó gửi block report và namenode ghi nhận lại các bản sao trên node đó.
 
 ### Cảnh 4. Spark huấn luyện Model B (khoảng 2 phút sau khi cắt)
 
@@ -109,8 +127,8 @@ Trong lúc job chạy (khoảng 6 phút), chuyển sang http://localhost:4040: t
 
 > Job huấn luyện chạy trên cụm Spark, đọc thẳng từ địa chỉ hdfs, không đọc file trên máy.
 > Bước nặng nhất là hàm cửa sổ: Spark gom giao dịch của từng chủ thẻ, sắp theo thời gian, và với mỗi giao dịch lấy 100 giao dịch trước đó của chính người đó. Từ đó tính bảy đặc trưng hành vi, ví dụ số tiền gấp bao nhiêu lần mức trung bình của người đó, giờ giao dịch, số giao dịch trong 24 giờ qua.
-> Dữ liệu được chia theo thời gian, không xáo trộn: phần đầu để huấn luyện, phần sau để chọn ngưỡng, và file test ở giai đoạn sau nữa để đánh giá. Tỉ lệ gian lận chỉ khoảng nửa phần trăm, nên nhóm đặt trọng số 182 cho lớp gian lận.
-> Spark huấn luyện hai mô hình, Random Forest và Gradient Boosted Trees, rồi chọn mô hình theo PR-AUC trên tập validation. GBT thắng, với ngưỡng cảnh báo 0,961.
+> Dữ liệu được chia theo thời gian, không xáo trộn: 90% đầu của file train để huấn luyện, 10% cuối làm validation để chọn mô hình và ngưỡng, còn file test thuộc giai đoạn sau nữa và chỉ dùng để đánh giá. Tỉ lệ gian lận chỉ khoảng nửa phần trăm, nên mỗi dòng gian lận được đặt trọng số khoảng 182, bằng số dòng bình thường chia số dòng gian lận trong tập train.
+> Spark huấn luyện hai mô hình, Random Forest và Gradient-Boosted Trees, rồi chọn mô hình theo PR-AUC trên tập validation. GBT thắng. Ngưỡng cảnh báo 0,961 cũng được chọn trên validation, là ngưỡng cho F1 lớn nhất.
 > Toàn bộ job chạy khoảng 6 phút. Chỉ các số liệu tổng hợp được đưa về driver, không có bước nào gom toàn bộ dữ liệu về Python.
 
 ### Cảnh 5. Kết quả và biểu đồ (khoảng 1 phút 45 giây)
@@ -125,14 +143,23 @@ Thao tác, cuộn lần lượt:
 4. Mục 6: thí nghiệm điền 0 của Model A.
 
 > Phân tích khám phá cho thấy gian lận tập trung vào ban đêm và ở một số danh mục mua sắm. Trung vị số tiền của giao dịch gian lận gấp gần 5 lần mức trung bình của chính người đó, còn giao dịch bình thường chỉ khoảng 0,7 lần.
-> Trên tập test, GBT đạt PR-AUC 0,654, precision 0,59, recall 0,67. Mô hình chỉ cảnh báo 0,42% giao dịch, và gần 6 trên 10 cảnh báo là gian lận thật. Luật đơn giản "gấp 3 lần trung bình" cảnh báo gần 7% giao dịch nhưng hầu hết là nhầm, F1 thấp hơn hơn 12 lần.
+> Trên tập test, GBT đạt PR-AUC 0,654, precision 0,59, recall 0,67. Mô hình chỉ cảnh báo 0,42% giao dịch, và gần 6 trên 10 cảnh báo là gian lận thật. Luật đơn giản "gấp 3 lần trung bình cùng danh mục" cảnh báo gần 7% giao dịch nhưng hầu hết là nhầm, F1 chỉ bằng khoảng một phần mười hai của GBT.
 > Đặc trưng quan trọng nhất là tỉ lệ số tiền so với mức trung bình của người dùng, rồi đến danh mục và giờ.
 > Thí nghiệm cuối trả lời câu hỏi: sao không dùng mô hình ngân hàng kiểu Kaggle cho app? Mô hình đó cần 28 biến PCA mà app không có. Nếu điền 0 cho các biến đó, recall rơi từ 0,79 về 0, mô hình không bắt được giao dịch gian lận nào. Vì vậy nhóm làm Model B với đặc trưng mà app thật sự có.
+
+### Cảnh 5b. Thí nghiệm mở rộng (khoảng 1 phút)
+
+Màn hình: ba hình `artifacts/charts/6_scale_volume.png`, `7_csv_vs_parquet.png`, `8_scale_cores.png` mở trong VS Code. Không chạy lại thí nghiệm khi quay (10 lần chạy, khoảng 75 phút), số liệu lấy từ `artifacts/scale/results.jsonl`.
+
+> 622 MB chưa phải là lớn, nên nhóm đo thêm khả năng mở rộng. Dữ liệu Sparkov được nhân thành tối đa 8 bản, mỗi bản là một nhóm chủ thẻ mới, tổng cộng 14.819.152 dòng. Bước được đo là bước tính bảy đặc trưng bằng hàm cửa sổ, không phải bước huấn luyện.
+> Dữ liệu tăng 8 lần, từ 0,5 GB lên 4,08 GB CSV, thì thời gian với 4 core tăng khoảng 6,5 lần, từ 95 lên 614 giây.
+> Với 4 bản, tức 7,4 triệu dòng, chạy bằng 1, 2 và 4 core mất 1153, 604 và 358 giây, tức tăng tốc 1,9 và 3,2 lần.
+> Lưu dạng Parquet, 8 bản chỉ chiếm 1,20 GB thay vì 4,08 GB. Bước đọc nhanh hơn khoảng 2 lần, nhưng tổng thời gian chỉ giảm khoảng 8%, vì phần lớn thời gian nằm ở bước sắp xếp theo chủ thẻ của hàm cửa sổ.
 
 Kết thúc phần A: tắt cụm.
 
 ```bash
-docker compose -f docker-compose.bigdata.yml stop spark-master spark-worker namenode datanode
+docker compose -f docker-compose.bigdata.yml stop spark-master spark-worker namenode datanode datanode2
 ```
 
 ## Phần B: phục vụ và ứng dụng
@@ -148,7 +175,7 @@ curl http://127.0.0.1:8001/health
 
 Phải thấy: `"behaviorModelLoaded": true`, `"behaviorModelVersion": "behavior-gbt-2026-10-07"`.
 
-> Mô hình đã huấn luyện được đóng gói vào một API FastAPI. Khi khởi động, API nạp cả hai mô hình, kiểm tra danh sách đặc trưng trong metadata khớp với code, và chạy thử một lần cho nóng máy.
+> Mô hình đã huấn luyện được đóng gói vào một API FastAPI. Khi khởi động, API nạp cả hai mô hình, kiểm tra danh sách đặc trưng và số lịch sử tối thiểu trong metadata của Model B khớp với code, rồi chấm thử Model B một lần để làm nóng.
 
 ### Cảnh 7. Thử API trên Swagger (khoảng 2 phút 30 giây)
 
@@ -189,7 +216,7 @@ python -X utf8 scripts/e2e_check.py --base-url http://127.0.0.1:8001
 Phải thấy: 20 dòng PASS, dòng cuối `20/20 checks passed`. Chỉ vào hai dòng `parity`.
 
 > Script kiểm thử đầu cuối chạy 20 kiểm tra trên API thật: dữ liệu sai định dạng bị từ chối, người dùng mới không bị chấm, độ trễ khoảng nửa giây, quét 1.000 giao dịch trong khoảng 1 giây.
-> Hai dòng quan trọng nhất là parity: 30 giao dịch test do Spark xuất ra được gửi lại qua API. Đặc trưng và xác suất API tính ra khớp tuyệt đối với Spark. Nghĩa là mô hình chạy trong app chính là mô hình đã được đánh giá.
+> Hai dòng quan trọng nhất là parity: 30 giao dịch test do Spark xuất ra được gửi lại qua API. Đặc trưng và xác suất API tính ra khớp với Spark, chênh lệch không quá 2 phần triệu. Nghĩa là mô hình chạy trong app chính là mô hình đã được đánh giá.
 
 ### Cảnh 9. Ứng dụng: màn hình giao dịch nghi vấn (khoảng 1 phút)
 
@@ -200,15 +227,15 @@ Thao tác:
 1. Ở Trang chủ, chỉ vào banner đỏ "Có 2 giao dịch chi tiêu bất thường". Bấm vào.
 2. Màn hình "Cảnh báo chi tiêu bất thường": dòng "2/36 giao dịch có dấu hiệu bất thường" (36 hoặc 37 tùy ngày chạy seed), biểu đồ cột (Mua sắm 1, Hóa đơn 1), rồi danh sách:
    - Mua sắm 2.400.000 đ: thanh rủi ro khoảng 97%, "Số tiền gấp 10,7 lần mức chi trung bình của bạn." (10,7 đến 10,8)
-   - Hóa đơn 3.000.000 đ: nhãn "Vượt xa mức chi thường ngày", "Số tiền gấp ... lần mức chi trung bình của bạn." (khoảng 26 đến 28)
+   - Hóa đơn 3.000.000 đ: nhãn "Vượt xa mức chi thường ngày", "Số tiền gấp ... lần mức chi trung bình của bạn." (khoảng 25,6 đến 28,0)
 3. Quay lại, vào tab AI, chỉ vào thẻ "Cảnh báo chi tiêu bất thường" với dòng "2 giao dịch có dấu hiệu bất thường. Nhấn để xem."
 
-Các con số trên đúng khi tài khoản chỉ có 41 giao dịch do script seed tạo. Nếu tài khoản có giao dịch khác, số có thể lệch.
+Các con số trên đúng khi tài khoản chỉ có 41 hoặc 42 giao dịch do script seed tạo. Nếu tài khoản có giao dịch khác, số có thể lệch.
 
 > Đây là ứng dụng DonutPay. Tài khoản demo có khoảng một tháng chi tiêu thói quen và ba khoản lạ.
-> Trang chủ báo có 2 giao dịch bất thường. Màn hình chi tiết quét lại toàn bộ lịch sử bằng mô hình mỗi khi mở: khoảng 36 giao dịch đủ dữ liệu, 2 bị gắn cờ, có biểu đồ theo danh mục.
+> Trang chủ báo có 2 giao dịch bất thường. Màn hình chi tiết gửi toàn bộ lịch sử cho mô hình chấm: khoảng 36 giao dịch đủ dữ liệu, 2 bị gắn cờ, có biểu đồ theo danh mục.
 > Khoản mua sắm 2,4 triệu lúc gần nửa đêm do mô hình gắn cờ, rủi ro 97%. Khoản hóa đơn 3 triệu lúc 2 giờ sáng do luật chặn gắn cờ, nên app hiện nhãn "vượt xa mức chi thường ngày" thay vì điểm rủi ro, để người dùng không hiểu nhầm.
-> Khoản tiệc nhà hàng 1,5 triệu thì không bị gắn cờ: nó gấp khoảng 7 lần mức chi trung bình chung, chưa tới 10 lần của luật, và mô hình cho điểm thấp vì ăn uống là danh mục ít gian lận trong dữ liệu huấn luyện. Hệ thống không cảnh báo mọi khoản lớn.
+> Khoản tiệc nhà hàng 1,5 triệu thì không bị gắn cờ: nó gấp khoảng 13 lần mức chi ăn uống thường ngày nhưng chỉ khoảng 7 lần mức chi trung bình chung, nên chưa đủ điều kiện của luật (cả hai tỉ lệ phải từ 10 trở lên), và mô hình cho điểm thấp vì ăn uống là danh mục ít gian lận trong dữ liệu huấn luyện. Hệ thống không cảnh báo mọi khoản lớn.
 
 ### Cảnh 10. Ứng dụng: ba đường nhập khoản chi (khoảng 3 phút 30 giây)
 
@@ -296,7 +323,7 @@ Tua nhanh, dừng ở dòng cuối "All levels passed."
 Màn hình: quay lại sơ đồ kiến trúc.
 
 > Tóm lại, nhóm đã dựng HDFS và Spark thật, xử lý 1,85 triệu giao dịch bằng hàm cửa sổ phân tán, huấn luyện và chọn mô hình trên tập validation, rồi đưa mô hình vào ứng dụng qua một API có kiểm chứng khớp số với Spark.
-> Giới hạn nhóm nêu rõ: dữ liệu huấn luyện là dữ liệu mô phỏng; PR-AUC 0,654 nghĩa là vẫn có báo nhầm và bỏ sót; hạ tầng chạy trên một máy; và đây là suy luận trực tuyến khi lưu giao dịch, không phải xử lý luồng.
+> Giới hạn nhóm nêu rõ: dữ liệu huấn luyện là dữ liệu mô phỏng; PR-AUC 0,654 nghĩa là vẫn có báo nhầm và bỏ sót; hai datanode và Spark worker vẫn chạy trên một máy vật lý; và đây là suy luận trực tuyến khi lưu giao dịch, không phải xử lý luồng.
 > Cảm ơn thầy cô và các bạn đã theo dõi.
 
 ## Phụ lục: bảng thời lượng
@@ -306,8 +333,10 @@ Màn hình: quay lại sơ đồ kiến trúc.
 | 1 | Mở đầu, sơ đồ | 0:45 |
 | 2 | Khởi động cụm | 0:45 |
 | 3 | Nạp HDFS | 1:30 |
+| 3b | Tắt một datanode | 1:15 |
 | 4 | Spark huấn luyện | 2:00 |
 | 5 | Notebook, kết quả | 1:45 |
+| 5b | Thí nghiệm mở rộng | 1:00 |
 | 6 | API | 0:30 |
 | 7 | Swagger | 2:30 |
 | 8 | e2e_check | 0:45 |
@@ -316,7 +345,7 @@ Màn hình: quay lại sơ đồ kiến trúc.
 | 11 | Sự cố | 1:00 |
 | 12 | Kiểm thử app (tùy chọn) | 0:45 |
 | 13 | Kết | 0:45 |
-| | Tổng | khoảng 17 phút, khoảng 16 phút nếu bỏ cảnh 12 |
+| | Tổng | khoảng 20 phút, khoảng 19 phút nếu bỏ cảnh 12 |
 
 ## Phụ lục: nếu kết quả trên app khác kịch bản
 

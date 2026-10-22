@@ -7,8 +7,8 @@ Hai mô hình, hai vai trò. Model B là mô hình app dùng. Model A là chuẩ
 | Vai trò | Benchmark, đối chứng | Chạy trong app |
 | Dữ liệu | Kaggle Credit Card, 284.807 dòng | Sparkov, 1.852.394 dòng |
 | Feature | 30: `Time`, `V1..V28` (PCA của ngân hàng), `Amount` | 7 feature hành vi (xem `04_FEATURE_HANH_VI.md`) |
-| Thuật toán | Random Forest | Gradient-Boosted Trees (thắng Random Forest trên validation) |
-| Chia dữ liệu | Ngẫu nhiên 80/20, seed 42 | Theo thời gian: train, validation, test |
+| Thuật toán | Random Forest | Gradient-Boosted Trees (PR-AUC validation cao hơn Random Forest) |
+| Chia dữ liệu | Ngẫu nhiên 80/20, seed 42 | Theo thời gian: 90% đầu `fraudTrain.csv` là train, 10% cuối là validation, `fraudTest.csv` là test |
 | Script | `train_pipeline.py` | `train_behavior.py` |
 | Kết quả | `metrics.json` | `artifacts/behavior/metrics_behavior.json` |
 | Endpoint | `POST /predict-fraud` | `POST /v2/predict-anomaly`, `POST /v2/scan-history` |
@@ -25,17 +25,19 @@ Không so sánh trực tiếp chỉ số của A với B. Dữ liệu, feature v
 | Đọc từ `fraudTest.csv` | 553.574 | 2.145 | 555.719 |
 | Sau khi bỏ cold start, phần train | 1.284.641 | 7.119 | 1.291.760 |
 | Sau khi bỏ cold start, phần test | 553.574 | 2.065 | 555.639 |
-| Train (trước 2020-05-02 14:52:07) | | 6.333 | 1.162.460 |
-| Validation (từ mốc đó, phần còn lại của file train) | | | 129.300 |
-| Test (toàn bộ file test đủ lịch sử) | | 2.065 | 555.639 |
+| Train (trước 2020-05-02 14:52:07) | 1.156.127 | 6.333 | 1.162.460 |
+| Validation (từ mốc đó, phần còn lại của file train) | 128.514 | 786 | 129.300 |
+| Test (toàn bộ file test đủ lịch sử) | 553.574 | 2.065 | 555.639 |
 
-4.995 dòng bị bỏ vì có dưới 5 giao dịch trước đó: 4.528 dòng bình thường và 387 dòng gian lận ở file train (vài giao dịch đầu tiên của mỗi chủ thẻ), cộng 80 dòng gian lận ở file test (chủ thẻ mới xuất hiện và bị gian lận ngay). API cũng không chấm những trường hợp như vậy, nên huấn luyện bỏ chúng là đúng với lúc dùng.
+Mốc 2020-05-02 14:52:07 là phân vị 90% của thời điểm giao dịch trong phần train (`approxQuantile`, sai số tương đối 0,0001). Chia theo thời gian để mô hình chỉ học từ quá khứ và được đánh giá trên giai đoạn sau, giống lúc dùng thật. Nếu chia ngẫu nhiên, mô hình được học cả những giao dịch xảy ra sau giao dịch cần đánh giá (rò rỉ thông tin từ tương lai), và số liệu sẽ lạc quan hơn thực tế. Số dòng bình thường của train, validation và số gian lận của validation được tính từ `rowsScorable` và `split` trong `metrics_behavior.json`.
+
+4.995 dòng bị bỏ vì có dưới 5 giao dịch trước đó: 4.528 dòng bình thường và 387 dòng gian lận ở file train (vài giao dịch đầu tiên của mỗi chủ thẻ), cộng 80 dòng gian lận ở file test (chủ thẻ mới xuất hiện và bị gian lận ngay). API cũng không chấm những trường hợp này, nên bỏ chúng khi huấn luyện giúp dữ liệu huấn luyện khớp với dữ liệu lúc phục vụ.
 
 ### 1.2 Mất cân bằng
 
-Gian lận chiếm khoảng 0,5% train. Accuracy vô nghĩa: đoán "bình thường" cho mọi dòng vẫn đạt 99,5%. Vì vậy:
+Gian lận chiếm khoảng 0,54% train. Accuracy không dùng được: đoán "bình thường" cho mọi dòng vẫn đạt 99,46%. Vì vậy:
 
-- Huấn luyện với `weightCol`: dòng gian lận nặng 182,56 (bằng 1.156.127 / 6.333), dòng bình thường nặng 1.
+- Huấn luyện với `weightCol`: dòng gian lận nặng 182,56 (bằng 1.156.127 / 6.333, chỉ đếm trên phần train), dòng bình thường nặng 1. Tổng trọng số của hai lớp vì thế bằng nhau.
 - Đánh giá bằng PR-AUC, Precision, Recall, F1 của lớp gian lận, không dùng accuracy.
 
 ### 1.3 Hai ứng viên
@@ -48,18 +50,18 @@ Gian lận chiếm khoảng 0,5% train. Accuracy vô nghĩa: đoán "bình thư�
 
 ### 1.4 Chọn mô hình và ngưỡng (chỉ dùng validation)
 
-Ngưỡng 0,5 không dùng được: class weight 182 đẩy xác suất của mọi dòng lên cao. Job chọn ngưỡng như sau:
+Ngưỡng mặc định 0,5 không phù hợp. Với trọng số 182, mô hình học như thể hai lớp có số lượng ngang nhau, nên xác suất dự đoán cao hơn nhiều so với tỉ lệ gian lận thật và cắt ở 0,5 sẽ gắn cờ quá nhiều. Ngưỡng được chọn lại trên validation, không dùng test, để số liệu test vẫn là ước lượng khách quan. Job chọn ngưỡng như sau:
 
 1. Chia điểm số validation thành 1.000 bin trên Spark, đếm số gian lận và bình thường mỗi bin.
 2. Trên driver, với mỗi ngưỡng `k / 1000`, tính Precision, Recall, F1 khi gắn cờ mọi dòng có điểm từ ngưỡng đó trở lên.
-3. Lấy ngưỡng có F1 lớn nhất.
+3. Lấy ngưỡng có F1 lớn nhất. Mỗi mô hình có ngưỡng riêng.
 
 | Trên validation | PR-AUC | ROC-AUC | Ngưỡng tốt nhất | Precision | Recall | F1 |
 |---|---|---|---|---|---|---|
 | Random Forest | 0,700 | 0,989 | 0,943 | 0,716 | 0,644 | 0,678 |
 | **GBT** | **0,754** | **0,991** | **0,961** | 0,717 | 0,700 | **0,708** |
 
-GBT có PR-AUC validation cao hơn nên được chọn. Ngưỡng 0,961 ghi vào `behavior_metadata.json`, API đọc từ đó.
+Mô hình được chọn theo PR-AUC trên validation, GBT cao hơn nên được chọn. Ngưỡng 0,961 của GBT được ghi vào `behavior_metadata.json`, API đọc từ đó.
 
 ### 1.5 Kết quả trên test
 
@@ -73,9 +75,9 @@ GBT có PR-AUC validation cao hơn nên được chọn. Ngưỡng 0,961 ghi và
 
 - Cứ 1.000 giao dịch thì GBT cảnh báo khoảng 4. Trong các cảnh báo, khoảng 59% là gian lận thật.
 - GBT bắt được 67% gian lận, bỏ sót 33%.
-- Tỉ lệ gian lận trong test khoảng 0,37%, nên một bộ phân loại đoán ngẫu nhiên có PR-AUC cỡ 0,004. PR-AUC 0,654 cao hơn khoảng 170 lần, nhưng vẫn là mức vừa phải, không phải hoàn hảo.
-- Luật "gấp 3 lần trung bình cùng danh mục" bắt được 49% gian lận nhưng cảnh báo 6,84% giao dịch, hầu hết là nhầm. F1 của GBT cao hơn hơn 12 lần.
-- ROC-AUC của hai mô hình gần như bằng nhau (0,990). Với dữ liệu lệch lớp nặng, ROC-AUC không phân biệt được, nên PR-AUC mới là thước đo chính.
+- Tỉ lệ gian lận trong test khoảng 0,37%. PR-AUC của một bộ phân loại ngẫu nhiên xấp xỉ tỉ lệ này, tức khoảng 0,0037. PR-AUC 0,654 cao hơn khoảng 175 lần, nhưng vẫn là mức vừa phải, không phải hoàn hảo.
+- Luật "gấp 3 lần trung bình cùng danh mục" bắt được 49% gian lận nhưng cảnh báo 6,84% giao dịch, hầu hết là nhầm. F1 của GBT (0,629) gấp hơn 12 lần F1 của luật (0,051).
+- ROC-AUC của hai mô hình gần như bằng nhau (0,990). Khi lớp bình thường rất lớn, tỉ lệ dương tính giả FP / (FP + TN) luôn nhỏ (với GBT là 957 / 553.574, khoảng 0,17%), nên ROC-AUC gần 1 và khó phân biệt hai mô hình. PR-AUC dựa trên precision, tức so FP trực tiếp với TP, nên nhạy hơn với báo nhầm và được dùng làm thước đo chính.
 
 ### 1.6 Feature importance (GBT)
 
@@ -108,9 +110,9 @@ Toàn bộ job (đọc HDFS, hàm cửa sổ, huấn luyện hai mô hình, đá
 `train_pipeline.py`, chạy bằng `bash scripts/train_on_cluster.sh creditcard`:
 
 - Đọc `hdfs://namenode:8020/data/creditcard/creditcard.csv` với schema khai báo sẵn (31 cột kiểu double).
-- Class weight cho lớp gian lận: 284.315 / 492 = 577,9.
+- Class weight cho lớp gian lận: 284.315 / 492 = 577,9 (tính trên toàn bộ dữ liệu, trước khi chia).
 - Chia ngẫu nhiên 80/20, seed 42: 227.792 dòng train, 57.015 dòng test (112 gian lận).
-- Random Forest 100 cây, sâu tối đa 5.
+- Random Forest 100 cây, sâu tối đa 5. Kết quả dùng cột `prediction` của mô hình (ngưỡng mặc định 0,5), không chọn ngưỡng riêng như Model B.
 
 ### 2.2 Kết quả trên test
 
@@ -150,10 +152,13 @@ Notebook `behavior_anomaly_pipeline.ipynb` (đã chạy, lưu output) xuất 5 h
 
 Các phép `groupBy` của notebook chạy trên Spark, chỉ bảng tổng hợp được chuyển sang pandas để vẽ.
 
+Ba hình `6_scale_volume.png`, `7_csv_vs_parquet.png`, `8_scale_cores.png` trong cùng thư mục không do notebook sinh ra mà do `scripts/plot_scale.py` vẽ từ kết quả thí nghiệm mở rộng (xem `03_HDFS_SPARK.md` mục 4).
+
 ## 4. Huấn luyện lại
 
 ```bash
 cd BigData
+bash scripts/preflight.sh
 docker compose -f docker-compose.bigdata.yml up -d --build
 MSYS_NO_PATHCONV=1 bash scripts/hdfs_load.sh
 MSYS_NO_PATHCONV=1 bash scripts/train_on_cluster.sh behavior

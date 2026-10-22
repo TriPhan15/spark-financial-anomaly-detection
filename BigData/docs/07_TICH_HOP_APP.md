@@ -13,7 +13,7 @@ Thiếu một trong hai, mọi hàm kiểm tra trả `null` ngay và app lưu nh
 
 ## 2. `AnomalyCheckService`
 
-File: `mobile-app/lib/services/anomaly_check_service.dart`. Hai hàm tĩnh.
+File: `mobile-app/lib/services/anomaly_check_service.dart`. Hai hàm tĩnh chính là `check()` và `scanHistory()`, cộng `clearScanCache()` để xóa bộ đệm.
 
 ### 2.1 `check()`: trước khi lưu một khoản chi
 

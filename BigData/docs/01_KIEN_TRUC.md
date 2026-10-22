@@ -7,7 +7,7 @@ Phần Big Data chạy ở hai thời điểm khác nhau và dùng hai bộ máy
 | | Nửa huấn luyện (offline) | Nửa phục vụ (online) |
 |---|---|---|
 | Chạy khi nào | Một lần, khi có dữ liệu mới hoặc đổi feature | Mỗi lần người dùng lưu một khoản chi hoặc mở màn hình nghi vấn |
-| Thành phần | HDFS (namenode, datanode) và cụm Spark (master, worker) | Container `fraud-api` (FastAPI) |
+| Thành phần | HDFS (namenode, hai datanode) và cụm Spark (master, worker) | Container `fraud-api` (FastAPI) |
 | Đầu vào | File CSV trên HDFS | Một giao dịch và lịch sử của người dùng, gửi từ app |
 | Đầu ra | Thư mục mô hình và file số liệu trên đĩa | Điểm rủi ro, cờ bất thường, câu giải thích |
 | Thời gian | Khoảng 370 giây cho Model B | Vài trăm mili giây mỗi request |
@@ -21,11 +21,11 @@ Hai nửa nối với nhau bằng hai thứ:
 flowchart LR
     subgraph SRC["Nguồn dữ liệu (tải từ Kaggle)"]
         S1["data/fraudTrain.csv<br/>data/fraudTest.csv"]
-        S2["creditcard.csv"]
+        S2["data/creditcard.csv"]
     end
     subgraph OFF["Nửa huấn luyện: docker-compose.bigdata.yml"]
         NN["namenode<br/>UI :9870, RPC :8020"]
-        DN["datanode"]
+        DN["datanode, datanode2<br/>replication 2"]
         SM["spark-master<br/>UI :8080"]
         SW["spark-worker<br/>4 core, 3 GB"]
     end
@@ -64,8 +64,9 @@ Tất cả khai báo trong `docker-compose.bigdata.yml`, tách khỏi `docker-co
 
 | Service | Image | Lệnh | Cổng ra máy | Ghi chú |
 |---|---|---|---|---|
-| `namenode` | `apache/hadoop:3.4.1` | `hdfs namenode` | 9870 | Mount `./data` vào `/staging/sparkov` và `./creditcard.csv` vào `/staging/creditcard/creditcard.csv`, chỉ đọc. `ENSURE_NAMENODE_DIR` cho image tự format thư mục metadata lần đầu. |
-| `datanode` | `apache/hadoop:3.4.1` | `hdfs datanode` | không | Nơi lưu block thật. Chỉ có một datanode. |
+| `namenode` | `apache/hadoop:3.4.1` | `hdfs namenode` | 9870 | Mount `./data` vào `/staging/sparkov` và `./data/creditcard.csv` vào `/staging/creditcard/creditcard.csv`, chỉ đọc. Metadata nằm trong named volume `hdfs-name`. `ENSURE_NAMENODE_DIR` cho image tự format thư mục metadata lần đầu. |
+| `datanode` | `apache/hadoop:3.4.1` | `hdfs datanode` | không | Nơi lưu block thật, volume `hdfs-data1`. |
+| `datanode2` | `apache/hadoop:3.4.1` | `hdfs datanode` | không | Datanode thứ hai, volume `hdfs-data2`. Với replication 2, mỗi block có một bản trên mỗi datanode. |
 | `spark-master` | `bigdata-spark:4.0.1` (build từ `docker/spark.Dockerfile`) | `spark-class ...deploy.master.Master` | 8080, 4040 | Mount cả thư mục dự án vào `/workspace`. Job chạy `spark-submit` từ đây. |
 | `spark-worker` | `bigdata-spark:4.0.1` | `spark-class ...deploy.worker.Worker spark://spark-master:7077` | không | `SPARK_WORKER_MEMORY=3g`, `SPARK_WORKER_CORES=4`. Cũng mount `/workspace`. |
 | `fraud-api` | `bigdata-fraud-api:latest` (build từ `Dockerfile`) | `uvicorn main:app --port 8001` | 8001 | Thuộc profile `api`, chỉ chạy khi gọi `--profile api`. |
@@ -84,9 +85,11 @@ File `hadoop.env` (được commit vì không chứa bí mật):
 |---|---|---|
 | `fs.defaultFS` | `hdfs://namenode:8020` | Địa chỉ HDFS mà Spark dùng |
 | `dfs.namenode.rpc-address` | `namenode:8020` | Cổng RPC trong mạng compose |
-| `dfs.replication` | `1` | Một bản sao, vì chỉ có một datanode |
+| `dfs.replication` | `2` | Mỗi block có hai bản, nằm trên hai datanode khác nhau. Tắt một datanode vẫn đọc được dữ liệu. |
 | `dfs.permissions.enabled` | `false` | Bỏ kiểm tra quyền cho môi trường học tập |
-| `dfs.blocksize` | `134217728` | Block 128 MB |
+| `dfs.blocksize` | `134217728` | Block 128 MB, bằng giá trị mặc định của Hadoop 3, ghi ra để cấu hình rõ ràng |
+| `dfs.namenode.name.dir`, `dfs.datanode.data.dir` | `/hadoop/dfs/name`, `/hadoop/dfs/data` | Thư mục metadata và block, nằm trong các named volume nên `docker compose down` không làm mất dữ liệu |
+| `dfs.namenode.heartbeat.recheck-interval` | `30000` | 30 giây thay vì 5 phút mặc định, để namenode đánh dấu datanode chết sau khoảng 90 giây khi chạy demo chịu lỗi |
 
 ## 4. Thư mục `BigData/`
 
@@ -101,6 +104,8 @@ BigData/
 ├── behavior_features_spark.py   # cùng feature, bản Spark (huấn luyện dùng)
 ├── train_behavior.py            # job huấn luyện Model B
 ├── train_pipeline.py            # job huấn luyện Model A + thí nghiệm điền 0
+├── scale_data.py                # nhân Sparkov thành 8 bản trên HDFS cho thí nghiệm mở rộng
+├── benchmark_scale.py           # một lần đo thời gian đọc và tính feature trên k bản
 ├── behavior_api.py              # router /v2: predict-anomaly, scan-history
 ├── main.py                      # FastAPI app, /health, /predict-fraud, nạp mô hình
 ├── test_main.py                 # pytest cho hợp đồng của /predict-fraud
@@ -111,16 +116,20 @@ BigData/
 │   ├── behavior/metrics_behavior.json   # số liệu Model B
 │   ├── behavior/pr_curve_test.json      # đường Precision-Recall trên test
 │   ├── behavior/parity_sample.json      # 30 giao dịch test để đối chiếu Spark và API
-│   └── charts/*.png                     # 5 biểu đồ xuất từ notebook
+│   ├── scale/results.jsonl              # kết quả 10 lần chạy thí nghiệm mở rộng
+│   └── charts/*.png                     # biểu đồ 1-5 từ notebook, 6-8 từ plot_scale.py
 ├── behavior_anomaly_pipeline.ipynb      # notebook EDA + đánh giá Model B, đã chạy sẵn
 ├── fraud_detection_pipeline.ipynb       # notebook Model A (bản đầu)
 ├── scripts/
+│   ├── preflight.sh             # kiểm tra đủ ba file CSV trong data/ trước khi up
 │   ├── hdfs_load.sh             # nạp CSV lên HDFS, in bằng chứng
+│   ├── hdfs_fault_demo.sh       # tắt datanode2, chứng minh dữ liệu vẫn đọc được
 │   ├── train_on_cluster.sh      # spark-submit lên cụm
+│   ├── run_scale_benchmark.sh   # chạy 10 lần benchmark_scale.py
+│   ├── plot_scale.py            # vẽ biểu đồ 6-8 từ results.jsonl
 │   ├── e2e_check.py             # 20 check đầu cuối của API
 │   └── seed_demo_history.py     # tạo lịch sử chi tiêu cho tài khoản demo
-├── data/                        # fraudTrain.csv, fraudTest.csv (không commit)
-├── creditcard.csv               # bộ Kaggle Credit Card (không commit)
+├── data/                        # fraudTrain.csv, fraudTest.csv, creditcard.csv (không commit)
 └── docs/                        # tài liệu này
 ```
 

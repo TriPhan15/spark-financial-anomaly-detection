@@ -4,7 +4,7 @@ Model B không nhìn số tiền tuyệt đối. Nó nhìn một khoản chi so 
 
 ## 1. Định nghĩa
 
-Gọi x là giao dịch đang xét của một người dùng, xảy ra lúc t. H là tối đa 100 giao dịch gần nhất của người đó xảy ra trước t một cách nghiêm ngặt (cùng thời điểm không tính), chỉ lấy giao dịch có số tiền dương.
+Gọi x là giao dịch đang xét của một người dùng, xảy ra lúc t. H là tối đa 100 giao dịch gần nhất của người đó xảy ra trước t (giao dịch cùng thời điểm t không tính), chỉ lấy giao dịch có số tiền dương.
 
 | # | Feature | Công thức | Ý nghĩa |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Các hằng số nằm ở đầu `behavior_features.py`: `HISTORY_WINDOW = 100`
 - Sparkov tính bằng USD, app dùng VND. Một bữa trưa 12 USD và một bữa trưa 50.000 đồng đều có tỉ lệ khoảng 1 so với thói quen của người đó. Mô hình học trên USD vẫn dùng được cho VND.
 - Đề tài hỏi "khoản này có lệch khỏi thói quen không", và tỉ lệ đo đúng điều đó. 5 triệu là bình thường với người hay chi 5 triệu, và bất thường với người chỉ chi 50 nghìn.
 
-Số liệu từ notebook cho thấy feature tách được hai lớp (trung vị trên dữ liệu đủ lịch sử):
+Số liệu từ notebook cho thấy feature tách được hai lớp (trung vị xấp xỉ bằng `percentile_approx`, trên dữ liệu đủ lịch sử):
 
 | Feature | Trung vị nhóm gian lận | Trung vị nhóm bình thường |
 |---|---|---|
@@ -68,7 +68,7 @@ App có danh mục tiếng Việt do admin tạo. Mô hình chỉ biết 14 danh
 
 1. Chuẩn hóa: chữ thường, đổi `đ` thành `d`, bỏ dấu (NFD rồi bỏ ký tự dấu).
 2. Nếu tên đã là một danh mục Sparkov thì giữ nguyên (dùng khi replay dữ liệu Sparkov).
-3. Thay ký tự không phải chữ số bằng khoảng trắng, đệm hai đầu, rồi so khớp từ nguyên vẹn với danh sách từ khóa. Quy tắc đầu tiên khớp sẽ thắng.
+3. Thay ký tự không phải chữ cái hoặc chữ số bằng khoảng trắng, đệm hai đầu, rồi so khớp từ nguyên vẹn với danh sách từ khóa. Quy tắc đầu tiên khớp sẽ thắng.
 4. Không khớp gì thì về `misc_pos`.
 
 So khớp nguyên từ để "an" (ăn) không khớp bên trong "ban" (bán). Bảng từ khóa theo thứ tự ưu tiên:

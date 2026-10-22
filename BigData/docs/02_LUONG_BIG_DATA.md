@@ -37,8 +37,8 @@ Bảng dưới cho biết dữ liệu nằm ở đâu và lớn cỡ nào ở m�
 
 | Chặng | Dữ liệu | Nơi nằm | Kích thước |
 |---|---|---|---|
-| Sau khi tải | 3 file CSV | `data/`, `creditcard.csv` trên máy | 335 MB + 143 MB + 144 MB |
-| Sau `hdfs_load.sh` | 3 file CSV, chia block 128 MB | `hdfs://namenode:8020/data/` | 622,2 MB |
+| Sau khi tải | 3 file CSV | `data/` trên máy | 335 MB + 143 MB + 144 MB |
+| Sau `hdfs_load.sh` | 3 file CSV, chia block 128 MB, mỗi block 2 bản | `hdfs://namenode:8020/data/` | 622,2 MB dữ liệu, chiếm khoảng 1,2 GB đĩa trên hai datanode |
 | Trong job Spark | DataFrame có lịch sử và feature | Bộ nhớ executor, cache | 1.852.394 dòng đọc vào, 1.847.399 dòng đủ lịch sử |
 | Về driver | Chỉ số tổng hợp: histogram 1.000 bin, ma trận nhầm lẫn, 30 mẫu | Bộ nhớ driver | Vài trăm KB |
 | Sau huấn luyện | Mô hình và số liệu | `behavior_model/`, `artifacts/`, `metrics.json` | Mô hình B khoảng 400 KB |
@@ -52,7 +52,7 @@ Bảng dưới cho biết dữ liệu nằm ở đâu và lớn cỡ nào ở m�
 |---|---|---|---|---|---|
 | Sparkov | Kaggle `kartik2112/fraud-detection` | `data/fraudTrain.csv` | 1.296.675 | 7.506 (0,58%) | Model B, train và validation |
 | Sparkov | như trên | `data/fraudTest.csv` | 555.719 | 2.145 (0,39%) | Model B, test |
-| Credit Card | Kaggle `mlg-ulb/creditcardfraud` | `creditcard.csv` | 284.807 | 492 (0,17%) | Model A |
+| Credit Card | Kaggle `mlg-ulb/creditcardfraud` | `data/creditcard.csv` | 284.807 | 492 (0,17%) | Model A |
 
 Sparkov là dữ liệu mô phỏng giao dịch thẻ của khoảng 1.000 chủ thẻ trong hai năm, có cột `cc_num` (chủ thẻ), `trans_date_trans_time`, `category`, `amt`, `is_fraud` và nhiều cột cá nhân. Không có bộ dữ liệu chi tiêu cá nhân thật nào được công bố kèm nhãn, nên nhóm dùng bộ mô phỏng và nói rõ giới hạn này.
 
@@ -62,14 +62,16 @@ Các file CSV không được commit (`.gitignore` chặn `*.csv` và `data/`). 
 
 Lệnh: `bash scripts/hdfs_load.sh` (trên Git Bash cho Windows thêm `MSYS_NO_PATHCONV=1` phía trước).
 
-Compose đã mount sẵn thư mục `data/` và file `creditcard.csv` vào container namenode ở `/staging/...`, chế độ chỉ đọc. Script chạy các lệnh sau bên trong container namenode:
+Compose đã mount sẵn thư mục `data/` và file `data/creditcard.csv` vào container namenode ở `/staging/...`, chế độ chỉ đọc. Script chạy các lệnh sau bên trong container namenode:
 
 1. `hdfs dfsadmin -safemode wait`: chờ namenode thoát chế độ an toàn, vì lúc mới khởi động namenode chưa cho ghi.
 2. `hdfs dfs -mkdir -p /data/sparkov /data/creditcard`.
-3. `hdfs dfs -put -f` hai file Sparkov vào `/data/sparkov/` và file Credit Card vào `/data/creditcard/`. Namenode cắt mỗi file thành block 128 MB, datanode lưu block.
-4. In bằng chứng: `hdfs dfs -ls -h -R /data`, `hdfs dfs -du -s -h /data` (ra `622.2 M`) và `hdfs fsck /data -files -blocks` (kết luận `The filesystem under path '/data' is HEALTHY`).
+3. `hdfs dfs -put -f` hai file Sparkov vào `/data/sparkov/` và file Credit Card vào `/data/creditcard/`. HDFS client cắt mỗi file thành block 128 MB. Với mỗi block, namenode chọn hai datanode (`dfs.replication=2`), client ghi block theo pipeline qua cả hai, còn namenode chỉ lưu metadata: file gồm những block nào và mỗi block nằm ở datanode nào.
+4. In bằng chứng: `hdfs dfs -ls -h -R /data`, `hdfs dfs -du -s -h /data` (cột đầu `622.2 M` là kích thước dữ liệu, cột thứ hai là dung lượng tính cả hai bản sao) và `hdfs fsck /data -files -blocks` (kết luận `The filesystem under path '/data' is HEALTHY`).
 
 Từ đây mọi job Spark đọc dữ liệu qua địa chỉ `hdfs://namenode:8020/data/...`, không đọc file trên ổ đĩa máy.
+
+Vì mỗi block có hai bản, mất một datanode không làm mất dữ liệu. `scripts/hdfs_fault_demo.sh` tắt `datanode2` và cho thấy file vẫn đọc được, `fsck` báo 0 block bị mất (chi tiết ở `03_HDFS_SPARK.md`).
 
 ## B. Xử lý phân tán trên Spark
 
@@ -97,7 +99,7 @@ Lệnh: `bash scripts/train_on_cluster.sh behavior`. Script gọi `spark-submit`
 - Đọc CSV với `SPARKOV_SCHEMA` khai báo sẵn 23 cột. Không dùng `inferSchema`, vì suy kiểu cần đọc file thêm một lượt.
 - Chỉ giữ các cột app cũng biết: `trans_date_trans_time`, `cc_num`, `category`, `amt`, `trans_num`, nhãn `is_fraud` (đổi tên thành `label`). Các cột cá nhân và vị trí (tên, địa chỉ, tọa độ, nghề nghiệp, ngày sinh) bị bỏ ngay từ đầu.
 - Thêm cột `source` là `train` hoặc `test` để biết dòng đến từ file nào, rồi `unionByName` hai file thành một DataFrame. Hai file phải đi chung vì lịch sử của một giao dịch đầu file test nằm ở cuối file train.
-- `na.drop()` bỏ dòng thiếu giá trị.
+- `na.drop()` bỏ dòng thiếu giá trị ở các cột đã giữ.
 
 Kết quả đọc (`rowsRead` trong `metrics_behavior.json`): train 1.289.169 bình thường + 7.506 gian lận, test 553.574 bình thường + 2.145 gian lận.
 
@@ -106,12 +108,12 @@ Kết quả đọc (`rowsRead` trong `metrics_behavior.json`): train 1.289.169 b
 `build_features()`:
 
 1. Đổi chuỗi thời gian thành `local_time` rồi thành số giây `ts`. Phiên Spark đặt múi giờ UTC, nên giờ trong file được đọc nguyên văn, không bị dịch múi giờ.
-2. Định nghĩa cửa sổ: `Window.partitionBy("cc_num").orderBy("ts", "trans_num").rowsBetween(-101, -1)`. Spark gom dữ liệu của mỗi chủ thẻ về cùng một partition, sắp theo thời gian, rồi với mỗi dòng lấy 101 dòng đứng trước nó.
+2. Định nghĩa cửa sổ: `Window.partitionBy("cc_num").orderBy("ts", "trans_num").rowsBetween(-101, -1)`. Spark shuffle dữ liệu theo `cc_num` để mọi giao dịch của một chủ thẻ về cùng một partition, sắp xếp trong partition theo `ts` và `trans_num`, rồi với mỗi dòng lấy tối đa 101 dòng đứng ngay trước nó.
 3. `collect_list(struct(ts, amt, category))` trên cửa sổ đó tạo cột mảng `previous`.
 4. `filter(previous, x -> x.ts < ts)` bỏ những dòng có cùng thời điểm với giao dịch hiện tại. Lịch sử phải đứng trước một cách nghiêm ngặt, giống hệt API. Đó là lý do cửa sổ lấy 101 thay vì 100: nếu một dòng bị loại vì trùng giờ, vẫn còn đủ 100.
 5. `slice(...)` giữ 100 phần tử cuối, tức 100 giao dịch gần nhất. Kết quả là cột `history`.
 
-Đây là bước nặng nhất của job, vì mỗi dòng mang theo một mảng tới 100 phần tử. Vì vậy chỉ các cột feature được cache, còn mảng `history` thì không.
+Đây là bước nặng nhất của job, vì phải shuffle toàn bộ dữ liệu và mỗi dòng mang theo một mảng tới 100 phần tử. Vì vậy chỉ các cột feature được cache, còn mảng `history` thì không.
 
 ### Giai đoạn 4: bảy feature
 
@@ -266,7 +268,9 @@ Chi tiết từng màn hình và cách xử lý lỗi: `07_TICH_HOP_APP.md`.
 | Khẳng định | Bằng chứng |
 |---|---|
 | Dữ liệu thật sự nằm trên HDFS | Output `hdfs_load.sh` (622,2 MB, HEALTHY), UI 9870 |
+| HDFS chịu được mất một datanode | Output `hdfs_fault_demo.sh`: `Dead datanodes (1)`, file vẫn đọc được, `Missing blocks: 0` |
 | Spark đọc từ HDFS, chạy trên cụm | `"input": "hdfs://namenode:8020/data/sparkov"` và `"master": "spark://spark-master:7077"` trong `metrics_behavior.json`, UI 8080 |
-| Feature lúc phục vụ giống lúc huấn luyện | `e2e_check.py`: 30 giao dịch test, feature và xác suất khớp tuyệt đối |
+| Feature lúc phục vụ giống lúc huấn luyện | `e2e_check.py`: 30 giao dịch test, feature lệch không quá `1e-6` (tương đối) và xác suất lệch không quá `2e-6` |
 | Mô hình tốt hơn luật đơn giản | F1 0,629 so với 0,051 trên cùng tập test |
+| Bước tính feature chạy được khi dữ liệu lớn gấp 8 lần | `artifacts/scale/results.jsonl`: 14.819.152 dòng, CSV 4,08 GB trên HDFS (`REPORT_NOTES.md` mục 7b) |
 | App không bị chặn khi API lỗi | Case L1 trong `mobile-app/test/bigdata_cases/` |

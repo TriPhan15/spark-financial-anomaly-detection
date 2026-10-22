@@ -28,7 +28,7 @@ Kết quả chạy ngày 15/10/2026 trên mô hình `behavior-gbt-2026-10-07`: *
 | 10 | Bữa trưa thường lệ cũng không bị luật gắn cờ | PASS |
 | 11 | Độ trễ dưới timeout 3 giây của app | 505 ms |
 | 12 | Danh mục tiếng Việt được ánh xạ (Ăn uống thành `food_dining` = 1) | PASS |
-| 13 | Mua online 23:40, khoảng 20 lần mức chi thường, bất thường và có câu giải thích | risk 0,978872, "Số tiền gấp 11,1 lần mức chi trung bình của bạn." |
+| 13 | Mua online 1.200.000 lúc 23:40, khoảng 11 lần mức chi trung bình, bất thường và có câu giải thích | risk 0,978872, "Số tiền gấp 11,1 lần mức chi trung bình của bạn." |
 | 14 | `scan-history`: quét tất cả, chấm tất cả trừ 5 giao dịch đầu | 40 quét, 35 chấm |
 | 15 | `scan-history` gắn cờ giao dịch bất thường được chèn vào | PASS |
 | 16 | Điểm của `scan-history` bằng điểm của `predict-anomaly` cho cùng giao dịch | 0,978872 cả hai |
@@ -48,7 +48,7 @@ Lịch sử dùng cho các check 6 đến 18 là một người dùng giả lậ
 | Mức | Ý nghĩa | Số case | Mô hình |
 |---|---|---|---|
 | L0 | API lên, đủ mô hình, `e2e_check.py` đạt | 20 check | Thật |
-| L1 | Sự cố: không cấu hình, chế độ demo, API sập, treo, trả 500, trả body lạ, backend lỗi, chưa có lịch sử, chỉ 4 giao dịch | 9 | Thật ở L1-09, còn lại giả lập sự cố |
+| L1 | Sự cố: không cấu hình, chế độ demo, API sập, treo, trả 500, trả body lạ, backend lỗi, chưa có lịch sử, chỉ 4 giao dịch | 9 | API thật ở L1-08 và L1-09, các case còn lại giả lập sự cố hoặc không gọi tới API |
 | L2 | Hợp đồng dữ liệu: payload hợp lệ, cắt lịch sử còn 100, bỏ khoản thu, lịch sử sau ngày hóa đơn, thứ tự không ảnh hưởng, bỏ số tiền 0, danh mục lạ, kết quả lặp lại được, cắt 1.000 cho màn hình nghi vấn | 9 | Thật |
 | L3 | Phán đoán của mô hình: bữa trưa thường, mua online đêm khuya, khai khống 5 triệu, mọi số từ 10 lần trở lên đều bị gắn cờ, sửa giao dịch cũ, độ trễ, màn hình nghi vấn | 8 | Thật |
 | L4 | Màn hình khi bị gắn cờ: nhập tay (L4-01 đến 05), sửa (L4-06 đến 09), quét hóa đơn với bút chì (L4-10 đến 14) | 14 | Giả lập đáp án |
@@ -122,9 +122,9 @@ Bản debug cần cho phép HTTP không mã hóa (`usesCleartextTraffic` trong m
 | Log có `ChecksumException` | File mô hình bị đổi kết thúc dòng | `.gitattributes` ở gốc repo đặt `-text` cho hai thư mục mô hình. Checkout lại chúng |
 | API trả 503 | Mô hình chưa nạp | Như trên |
 | Màn hình nghi vấn báo "Chưa kiểm tra được" | API tắt, sai địa chỉ, quá 10 giây | Kiểm tra `adb reverse tcp:8001` và `FRAUD_API_URL` |
-| Màn hình nghi vấn báo "Chưa đủ dữ liệu" | Tài khoản dưới 6 khoản chi | Chạy `seed_demo_history.py` |
+| Màn hình nghi vấn báo "Chưa đủ dữ liệu" | Tài khoản có từ 5 khoản chi trở xuống, nên không khoản nào có đủ 5 khoản trước nó | Chạy `seed_demo_history.py` |
 | `e2e_check.py` báo lỗi mã hóa khi in | Console Windows dùng cp1252 | Chạy với `python -X utf8` |
-| `e2e_check.py` FAIL ở check Model A | Thiếu `creditcard.csv` trong `BigData` | Tải từ Kaggle |
+| `e2e_check.py` FAIL ở check Model A | Thiếu `creditcard.csv` trong `BigData/data/` (hoặc `BigData/`) | Tải từ Kaggle (`mlg-ulb/creditcardfraud`) |
 | Spark master không lên | Cổng 8080 đang bị core-backend dùng | Tắt một trong hai |
 
 ## 7. Danh sách kiểm tra trước buổi bảo vệ
@@ -134,4 +134,5 @@ Bản debug cần cho phép HTTP không mã hóa (`usesCleartextTraffic` trong m
 - [ ] `bash test/bigdata_cases/run_in_order.sh` ra "All levels passed."
 - [ ] Tài khoản demo có lịch sử (banner Trang chủ hiện số giao dịch bất thường).
 - [ ] Đã thử một lần hộp thoại ở cả ba đường nhập trên điện thoại.
+- [ ] Nếu demo phần cụm: `bash scripts/preflight.sh` báo `preflight ok`, UI 9870 thấy 2 datanode đang sống.
 - [ ] Mở sẵn notebook đã chạy, UI 9870 và 8080 (nếu demo phần cụm), Swagger `/docs`.

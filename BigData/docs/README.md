@@ -16,7 +16,7 @@ Thư mục này mô tả module phát hiện chi tiêu bất thường của Don
 | 8 | [08_KIEM_THU_VAN_HANH.md](08_KIEM_THU_VAN_HANH.md) | 20 check đầu cuối, 44 case Flutter theo mức, cách chạy lại, xử lý sự cố | Cả nhóm trước buổi bảo vệ |
 | 9 | [09_KICH_BAN_DEMO.md](09_KICH_BAN_DEMO.md) | Kịch bản quay video demo: thứ tự cảnh, thao tác, lời đọc | Người quay video |
 
-Hai tài liệu có sẵn từ trước vẫn giữ nguyên:
+Hai tài liệu có từ trước, đã cập nhật theo hạ tầng hai datanode và thí nghiệm mở rộng:
 
 - [REPORT_NOTES.md](REPORT_NOTES.md): số liệu để chép vào báo cáo Word, đối chiếu rubric, câu hỏi hội đồng hay hỏi.
 - [TEAM_GUIDE.md](TEAM_GUIDE.md): bản tóm tắt cho cả nhóm, có bảng tính năng và bảng việc còn lại.
@@ -25,7 +25,7 @@ Các file payload mẫu dùng khi demo API nằm trong [demo/](demo/).
 
 ## Tóm tắt trong năm dòng
 
-1. Dữ liệu: Sparkov (1.852.394 giao dịch thẻ mô phỏng, có nhãn gian lận) và Kaggle Credit Card (284.807 giao dịch), tổng 622,2 MB, nạp vào HDFS.
+1. Dữ liệu: Sparkov (1.852.394 giao dịch thẻ mô phỏng, có nhãn gian lận) và Kaggle Credit Card (284.807 giao dịch), tổng 622,2 MB, nạp vào HDFS (hai datanode, replication 2).
 2. Xử lý: Spark 4.0.1 standalone đọc thẳng từ `hdfs://namenode:8020/data`, tính 7 feature hành vi bằng hàm cửa sổ theo từng chủ thẻ.
 3. Mô hình: Model B là Gradient-Boosted Trees, PR-AUC 0,654 trên test, ngưỡng 0,961 chọn trên validation. Model A là Random Forest trên bộ Kaggle, chỉ để đối chứng.
 4. Phục vụ: FastAPI cổng 8001 nạp `PipelineModel`, tính lại feature bằng đúng công thức lúc huấn luyện, trả điểm rủi ro và câu giải thích tiếng Việt.
@@ -38,4 +38,5 @@ Khi tài liệu và code lệch nhau, code đúng. Các con số lấy từ:
 - `artifacts/behavior/metrics_behavior.json`: kết quả Model B.
 - `behavior_model/behavior_metadata.json`: phiên bản mô hình, ngưỡng, danh sách feature.
 - `metrics.json`: kết quả Model A và thí nghiệm điền 0.
+- `artifacts/scale/results.jsonl`: thời gian của 10 lượt đo mở rộng (CSV, Parquet, số core).
 - `scripts/e2e_check.py`: những gì API đã được kiểm chứng.

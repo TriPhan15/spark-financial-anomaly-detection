@@ -19,7 +19,7 @@ Biến môi trường (đều có giá trị mặc định, thường không c�
 | `FRAUD_MODEL_PATH` | `./random_forest_model` | Thư mục Model A |
 | `FRAUD_SPARK_APP_NAME` | `LedgerMindFraudDetection` | Tên SparkSession local |
 
-Khi khởi động, API mở một `SparkSession` `local[*]`, nạp từng mô hình trong một khối `try` riêng, kiểm tra metadata của Model B khớp với code, rồi chấm thử một lần để làm nóng. Mô hình nào nạp hỏng thì endpoint của nó trả 503, endpoint còn lại vẫn chạy.
+Khi khởi động, API mở một `SparkSession` `local[*]`, nạp từng mô hình trong một khối `try` riêng, kiểm tra metadata của Model B (thứ tự feature và `minHistory`) khớp với code, rồi chấm thử Model B một lần để làm nóng. Mô hình nào nạp hỏng thì endpoint của nó trả 503, endpoint còn lại vẫn chạy.
 
 ## 2. Danh sách endpoint
 
@@ -133,7 +133,7 @@ Response đầy đủ của ví dụ 2:
 }
 ```
 
-Ở ví dụ 2, lịch sử không có giao dịch `shopping_net` nào, nên `amt_ratio_user_cat` lấy bằng `amt_ratio_user` và câu giải thích dùng mẫu "mức chi trung bình của bạn". Ở ví dụ 3, điểm mô hình chỉ 0,019 (mô hình tin danh mục ăn uống), luật 10 lần mới là thứ gắn cờ.
+Ở ví dụ 2, lịch sử không có giao dịch `shopping_net` nào, nên `amt_ratio_user_cat` lấy bằng `amt_ratio_user` và câu giải thích dùng mẫu "mức chi trung bình của bạn". Ở ví dụ 3, điểm mô hình chỉ 0,019 vì trong Sparkov khoản lớn ở danh mục ăn uống gần như không bao giờ là gian lận (xem `05_HUAN_LUYEN_DANH_GIA.md` mục 1.7). Giao dịch bị gắn cờ là nhờ luật 10 lần.
 
 ## 5. Câu giải thích
 
@@ -201,7 +201,7 @@ Tối đa 1.000 giao dịch. `id` không bắt buộc, tối đa 64 ký tự, đ
 
 40 giao dịch được quét, 5 giao dịch đầu tiên chưa đủ lịch sử nên chỉ 35 được chấm. `flaggedByCategory` dùng tên danh mục gốc của app. Điểm của dòng `odd` trùng với điểm khi gọi `predict-anomaly` cho riêng nó, `e2e_check.py` kiểm tra điều này.
 
-Hiệu năng đo được: 1.000 giao dịch chấm trong khoảng 1,2 giây.
+Hiệu năng đo được trong lần chạy `e2e_check.py` ngày 15/10/2026: 1.000 giao dịch (995 được chấm) mất khoảng 1,2 giây cho cả request.
 
 ## 7. `POST /predict-fraud` (Model A)
 
@@ -223,7 +223,7 @@ Response:
 
 File mẫu: `docs/demo/06_model_a_gian_lan_that.json` (dòng gian lận đầu tiên của bộ Kaggle, bị gắn cờ, điểm 0,9713) và `docs/demo/07_model_a_dien_0.json` (cùng dòng, V1 đến V28 bằng 0, không bị gắn cờ, điểm 0,0538).
 
-Endpoint này dùng `prediction` của mô hình (ngưỡng mặc định của Random Forest), không dùng ngưỡng chọn trên validation như Model B.
+Endpoint này dùng cột `prediction` của mô hình (tương đương ngưỡng 0,5 trên xác suất), không dùng ngưỡng chọn trên validation như Model B.
 
 ## 8. Mã lỗi
 
@@ -237,6 +237,6 @@ App coi mọi mã khác 200, mọi body không đúng dạng và mọi lỗi m�
 
 ## 9. Log và quyền riêng tư
 
-API chỉ ghi thời gian xử lý và kết quả tổng (`scored`, số quét, số chấm, số gắn cờ). Nó không ghi số tiền, danh mục hay thời điểm giao dịch. Lỗi chỉ ghi tên loại lỗi. API không lưu gì xuống đĩa và không có cơ sở dữ liệu.
+API chỉ ghi thời gian xử lý và kết quả tổng (`scored`, số quét, số chấm, số gắn cờ). Nó không ghi số tiền, danh mục hay thời điểm giao dịch. Khi xử lý request, lỗi chỉ được ghi bằng tên loại lỗi. API không lưu gì xuống đĩa và không có cơ sở dữ liệu.
 
 API không có xác thực. Nó được thiết kế để chạy trong mạng nội bộ của môi trường demo. Đưa ra Internet thì cần thêm xác thực và giới hạn tần suất.

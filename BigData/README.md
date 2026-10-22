@@ -2,7 +2,7 @@
 
 Coursework module for "Phát hiện giao dịch tài chính bất thường (tích hợp tính năng cảnh báo rủi ro cho hệ thống quản lý tài chính cá nhân)". It runs on its own Docker stack (HDFS + Spark + API) and does not change `core-backend` or `ai-service`. The mobile app calls its API before saving a scanned receipt.
 
-Diagrams: `docs/architecture/`. Report notes with all numbers: `docs/REPORT_NOTES.md`.
+Diagrams: `../docs/architecture/`. Report notes with all numbers: `docs/REPORT_NOTES.md`.
 
 HDFS now runs two datanodes with replication 2 and keeps its data in the named volumes `hdfs-name`, `hdfs-data1` and `hdfs-data2`, so `docker compose down` no longer loses it (`down -v` does). The volumes are new in this version: after upgrading, run `hdfs_load.sh` once more.
 
@@ -70,3 +70,5 @@ Timing only: the copies are replicated Sparkov rows with new card ids, never use
 bash scripts/train_on_cluster.sh scale        # 8 copies on HDFS as CSV and Parquet (replication 1), prints sizes
 bash scripts/run_scale_benchmark.sh 2>&1 | tee scale_run.log   # 10 runs, appends artifacts/scale/results.jsonl
 ```
+
+Last run (17/10/2026, all 10 runs ok): 8 copies are 14,819,152 rows, 4,075,350,105 B as CSV and 1,203,934,114 B as Parquet. On 4 copies, 1, 2 and 4 cores take 1153.2, 603.7 and 357.5 s (speedup 1.91x and 3.23x). `python3 scripts/plot_scale.py`, run inside the `spark-master` container, draws `artifacts/charts/6_scale_volume.png`, `7_csv_vs_parquet.png` and `8_scale_cores.png`.

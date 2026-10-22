@@ -5,8 +5,8 @@ Tài liệu này gom toàn bộ số liệu thật (lấy từ các file kết q
 ## 1. Tóm tắt
 
 - **Đề tài:** Phát hiện giao dịch tài chính bất thường (tích hợp tính năng cảnh báo rủi ro cho hệ thống quản lý tài chính cá nhân).
-- **Lưu trữ:** HDFS chạy thật trên Docker (namenode + datanode), 622 MB dữ liệu gốc ở `hdfs://namenode:8020/data/`.
-- **Xử lý:** Spark 4.0.1 standalone (master + worker), đọc thẳng từ HDFS.
+- **Lưu trữ:** HDFS chạy thật trên Docker (namenode + 2 datanode, replication 2, dữ liệu giữ trong named volume), 622 MB dữ liệu gốc ở `hdfs://namenode:8020/data/`.
+- **Xử lý:** Spark 4.0.1 standalone (master + 1 worker 4 core), đọc thẳng từ HDFS.
 - **Hai mô hình:**
   - Model A (benchmark Kaggle Credit Card) dùng để đánh giá kỹ thuật xử lý mất cân bằng.
   - Model B (Sparkov, 1,85 triệu giao dịch) dùng feature hành vi mà app thật sự có. App gọi Model B, nên cảnh báo trên app là kết quả suy luận thật, không giả lập dữ liệu.
@@ -22,7 +22,8 @@ Tài liệu này gom toàn bộ số liệu thật (lấy từ các file kết q
 Bằng chứng HDFS (chụp màn hình cho báo cáo):
 
 - `bash scripts/hdfs_load.sh` in ra `hdfs dfs -ls -h -R /data`, dung lượng `622.2 M` và kết luận `The filesystem under path '/data' is HEALTHY`.
-- UI namenode http://localhost:9870, mục Utilities > Browse the file system > `/data/sparkov`, cho thấy các block 128 MB.
+- UI namenode http://localhost:9870, mục Datanodes hiện 2 datanode đang chạy; mục Utilities > Browse the file system > `/data/sparkov` cho thấy các block 128 MB, mỗi block có 2 bản sao.
+- `bash scripts/hdfs_fault_demo.sh`: dừng `datanode2`, chờ khoảng 100 giây, `hdfs dfsadmin -report` báo Live 1, Dead 1; `hdfs dfs -cat /data/sparkov/fraudTest.csv` vẫn đọc được; `fsck` báo các block thiếu bản sao (under-replicated) nhưng Missing blocks 0. Cuối script `datanode2` được bật lại.
 - Spark UI http://localhost:8080 hiện worker 4 core và các application đã chạy.
 
 ## 3. Feature hành vi (Model B)
@@ -79,7 +80,7 @@ Model A là Random Forest (100 cây, độ sâu 5) với class weight 577,9, chi
 - Precision 0,365, Recall 0,795, F1 0,500, PR-AUC 0,689, ROC-AUC 0,980.
 - Feature quan trọng: V14, V10, V12, V4, V11.
 
-**Thí nghiệm điền 0:** giữ nguyên các dòng test, thay V1..V28 bằng 0. Đây đúng là dữ liệu một app chỉ biết số tiền và thời gian sẽ phải gửi. Kết quả: Model A phát hiện **0/112** giao dịch gian lận (Recall 0) và không cảnh báo giao dịch nào. Đây là bằng chứng số liệu cho việc không dùng Model A trên hóa đơn, và cho thấy lập luận "zero-imputation" là sai.
+**Thí nghiệm điền 0:** giữ nguyên các dòng test, thay V1..V28 bằng 0. Đây đúng là dữ liệu một app chỉ biết số tiền và thời gian sẽ phải gửi. Kết quả: Model A phát hiện **0/112** giao dịch gian lận (Recall 0) và không cảnh báo giao dịch nào. Đây là bằng chứng số liệu cho việc không dùng Model A trên hóa đơn: điền 0 (zero-imputation) cho các biến PCA bị thiếu không dùng được.
 
 ## 6. Tích hợp ứng dụng
 
@@ -91,15 +92,15 @@ Luồng khi người dùng bấm Lưu hóa đơn (`review_form_page.dart` gọi 
 4. Nếu bất thường, app hiện hộp thoại "Chi tiêu bất thường so với thói quen", kèm lý do (ví dụ "Số tiền gấp 11,1 lần mức chi trung bình của bạn.") và điểm rủi ro. Người dùng chọn "Hủy" hoặc "Vẫn lưu".
 5. Người dùng mới (dưới 5 giao dịch), lỗi mạng hoặc timeout 3 giây: lưu bình thường, không chặn người dùng.
 
-Kiểm thử end-to-end (`scripts/e2e_check.py`, 13/13 PASS):
+Kiểm thử end-to-end (`scripts/e2e_check.py`, 20/20 PASS):
 
 - Model A gắn cờ 20/20 dòng gian lận thật đầu tiên của Kaggle.
 - API từ chối request sai định dạng (422).
 - Cold start không chấm điểm; lịch sử sau ngày hóa đơn bị bỏ qua.
 - Bữa trưa bình thường: rủi ro 0,019, không cảnh báo.
-- Mua online lúc 23h40, gấp khoảng 20 lần mức chi thường ngày: rủi ro 0,979, có cảnh báo kèm giải thích.
+- Mua online lúc 23h40, gấp khoảng 11 lần mức chi thường ngày: rủi ro 0,979, có cảnh báo kèm giải thích.
 - Độ trễ khoảng 450 ms, dưới timeout 3 giây.
-- **Replay 30 giao dịch test** do Spark xuất ra: feature và xác suất do API tính khớp tuyệt đối với Spark. Nghĩa là mô hình chạy trên app giống hệt mô hình đã đánh giá.
+- **Replay 30 giao dịch test** do Spark xuất ra: feature và xác suất do API tính khớp với Spark (sai lệch không quá 1e-6). Nghĩa là mô hình chạy trên app chính là mô hình đã đánh giá.
 
 ## 7. Đối chiếu rubric
 
@@ -108,13 +109,13 @@ Kiểm thử end-to-end (`scripts/e2e_check.py`, 13/13 PASS):
 | CLO1 Tính ứng dụng (1,0) | Cảnh báo thật trên app với feature app có; thí nghiệm điền 0 chứng minh vì sao cần Model B; câu giải thích dễ hiểu cho người dùng |
 | CLO2 Lưu trữ và xử lý (2,0) | HDFS thật 2 datanode, replication 2, demo tắt 1 datanode vẫn đọc được (`hdfs_fault_demo.sh`); Spark đọc `hdfs://`; Window functions trên 1,85 triệu dòng, thí nghiệm mở rộng tới 14,8 triệu dòng / 4,08 GB; CSV so với Parquet; class weights; EDA bằng groupBy trên cụm |
 | CLO3 Mô hình/công nghệ (2,5) | 2 bài toán, 3 cách tiếp cận (RF, GBT, luật); chia theo thời gian; chọn ngưỡng trên validation; đủ Precision, Recall, F1, PR-AUC, ROC-AUC, confusion matrix, feature importance |
-| CLO3 Trực quan hóa/ứng dụng (2,5) | Notebook có 5 biểu đồ, thêm 3 biểu đồ mở rộng (`artifacts/charts/6-8`); Swagger `/docs`; dialog trên app; 2 sơ đồ kiến trúc tương tác (`docs/architecture/*.html`) |
+| CLO3 Trực quan hóa/ứng dụng (2,5) | Notebook có 5 biểu đồ, thêm 3 biểu đồ mở rộng (`artifacts/charts/6-8`); Swagger `/docs`; dialog trên app; 2 sơ đồ kiến trúc tương tác (`docs/architecture/*.html` ở gốc repo) |
 | CLO4 Trình bày báo cáo (1,0) | Tài liệu này, README, spec thiết kế, số liệu chạy lại được |
 | CLO5 Làm việc nhóm (1,0) | Nhóm tự bổ sung phụ lục phân công (Spark, dữ liệu, API, Flutter) |
 
 ## 7b. Thí nghiệm mở rộng (`artifacts/scale/results.jsonl`, chạy 17/10/2026)
 
-Mục đích: trả lời thẳng câu hỏi "622 MB có phải Big Data không" bằng số đo thay vì lời nói. `scale_data.py` nhân Sparkov thành 8 bản trên HDFS (mỗi bản là một nhóm chủ thẻ mới: `cc_num` băm bằng `xxhash64`, `trans_num` thêm hậu tố), lưu cả CSV và Parquet, phân vùng theo `copy=N`. `benchmark_scale.py` đọc k bản đầu và chạy toàn bộ bước tính 7 đặc trưng hành vi bằng hàm cửa sổ tới cuối (`noop` sink, không gom dữ liệu về driver).
+Mục đích: trả lời thẳng câu hỏi "622 MB có phải Big Data không" bằng số đo thay vì lời nói. `scale_data.py` nhân Sparkov thành 8 bản trên HDFS (mỗi bản là một nhóm chủ thẻ mới: `cc_num` băm bằng `xxhash64`, `trans_num` thêm hậu tố), lưu cả CSV và Parquet, phân vùng theo `copy=N`, replication 1 để tiết kiệm đĩa. `benchmark_scale.py` đọc k bản đầu và chạy toàn bộ bước tính 7 đặc trưng hành vi bằng hàm cửa sổ tới cuối (`noop` sink, không gom dữ liệu về driver).
 
 Kích thước 8 bản: 14.819.152 dòng; CSV 4,08 GB; Parquet 1,20 GB (nhỏ hơn 3,4 lần).
 
@@ -150,17 +151,17 @@ Nhận xét:
 
 - **"Sao không dùng Model A cho app?"** Vì app không có V1..V28. Thí nghiệm điền 0 cho Recall bằng 0 (mục 5).
 - **"Dữ liệu mô phỏng thì có ý nghĩa gì?"** Pipeline, feature và cách đánh giá giữ nguyên khi có dữ liệu thật. Mô phỏng là lựa chọn duy nhất có nhãn ở quy mô lớn, và nhóm nêu rõ giới hạn này.
-- **"Sao biết feature trên app giống lúc train?"** `e2e_check.py` replay 30 giao dịch test qua API; feature và xác suất khớp tuyệt đối với Spark.
+- **"Sao biết feature trên app giống lúc train?"** `e2e_check.py` replay 30 giao dịch test qua API; feature và xác suất khớp với Spark (sai lệch không quá 1e-6).
 - **"Sao ngưỡng là 0,961 mà không phải 0,5?"** Class weight làm xác suất lệch lên. Ngưỡng được chọn trên validation để F1 lớn nhất, không chọn trên test.
 - **"Sao chia theo thời gian?"** Chia ngẫu nhiên sẽ dùng giao dịch tương lai để đoán quá khứ, cho kết quả lạc quan hơn thực tế.
-- **"Big Data ở đâu?"** HDFS lưu dữ liệu. Spark xử lý phân tán: window theo từng chủ thẻ trên 1,85 triệu dòng, MLlib train trên 1,16 triệu dòng. Chỉ số liệu tổng hợp nhỏ được đưa về driver.
+- **"Big Data ở đâu?"** HDFS lưu dữ liệu (2 datanode, replication 2, tắt 1 datanode vẫn đọc được). Spark xử lý phân tán: window theo từng chủ thẻ trên 1,85 triệu dòng, MLlib train trên 1,16 triệu dòng, thí nghiệm mở rộng tới 14,8 triệu dòng (mục 7b). Chỉ số liệu tổng hợp nhỏ được đưa về driver.
 
 ## 10. Kịch bản demo
 
 1. `docker compose -f docker-compose.bigdata.yml up -d`, rồi mở http://localhost:9870 (file trên HDFS) và http://localhost:8080 (Spark).
 2. Mở notebook đã chạy, đi qua EDA, bảng so sánh mô hình, thí nghiệm điền 0.
 3. Swagger http://localhost:8001/docs: gửi một request `/v2/predict-anomaly` bình thường và một request bất thường.
-4. Chạy `python scripts/e2e_check.py` để cho thấy 13/13 PASS và parity với Spark.
+4. Chạy `python scripts/e2e_check.py` để cho thấy 20/20 PASS và parity với Spark.
 5. Trên điện thoại (app build với `--dart-define=FRAUD_API_URL=http://<IP máy>:8001`): quét một hóa đơn lớn bất thường và cho thấy hộp thoại cảnh báo kèm lý do.
 
 ## 11. Bổ sung: giao diện giao dịch nghi vấn và lưu ý khi khai báo

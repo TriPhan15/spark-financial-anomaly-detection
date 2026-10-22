@@ -2,8 +2,8 @@
 
 ## 1. Yêu cầu máy
 
-- Docker Desktop, cấp cho Docker khoảng 8 GB RAM. Worker xin 3 GB, driver 2 GB, namenode và datanode thêm một ít.
-- Khoảng 2 GB đĩa trống cho dữ liệu (CSV trên máy cộng bản trên HDFS) và image.
+- Docker Desktop, cấp cho Docker khoảng 8 GB RAM. Worker xin 3 GB, driver 2 GB, namenode và hai datanode thêm một ít.
+- Khoảng 2 GB đĩa trống cho dữ liệu chính (622 MB CSV trên máy cộng khoảng 1,2 GB trên HDFS vì replication 2), cộng phần cho image. Thí nghiệm mở rộng ở mục 4 cần thêm khoảng 5,3 GB (CSV 4,08 GB và Parquet 1,20 GB, ghi với replication 1).
 - Trên Windows dùng Git Bash để chạy script `.sh`, và thêm `MSYS_NO_PATHCONV=1` trước lệnh. Không có biến này, Git Bash đổi `/data/sparkov` thành đường dẫn Windows và lệnh `hdfs` báo lỗi.
 
 ## 2. Khởi động
@@ -39,10 +39,10 @@ Script làm các bước sau, tất cả qua `docker compose exec -T namenode`:
 | 3 | `hdfs dfs -put -f /staging/sparkov/fraudTrain.csv /staging/sparkov/fraudTest.csv /data/sparkov/` | Chép Sparkov. `-f` cho phép chạy lại nhiều lần. |
 | 4 | `hdfs dfs -put -f /staging/creditcard/creditcard.csv /data/creditcard/` | Chép bộ Kaggle Credit Card |
 | 5 | `hdfs dfs -ls -h -R /data` | In danh sách file và kích thước |
-| 6 | `hdfs dfs -du -s -h /data` | In tổng dung lượng (622.2 M) |
+| 6 | `hdfs dfs -du -s -h /data` | In tổng dung lượng: cột đầu là kích thước dữ liệu (622.2 M), cột thứ hai là dung lượng tính cả hai bản sao |
 | 7 | `hdfs fsck /data -files -blocks` | In danh sách block và kết luận HEALTHY |
 
-`/staging/...` là thư mục được compose mount từ máy vào container namenode, chế độ chỉ đọc. Dữ liệu đi từ ổ đĩa máy vào namenode client, rồi được ghi thành block trên datanode.
+`/staging/...` là thư mục được compose mount từ máy vào container namenode, chế độ chỉ đọc. Lệnh `hdfs dfs -put` chạy với vai trò HDFS client bên trong container namenode: client đọc file từ `/staging`, xin namenode cấp block, rồi ghi từng block theo pipeline lên hai datanode. Dữ liệu không nằm trên namenode, namenode chỉ giữ metadata (file gồm những block nào, block nằm ở datanode nào).
 
 Lưu ý: dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1`, `hdfs-data2`, nên `stop`/`start` và cả `down` đều giữ dữ liệu. Chỉ `docker compose down -v` mới xóa volume, khi đó phải chạy lại `hdfs_load.sh`. Lần đầu nâng cấp lên phiên bản có volume này cũng phải chạy lại `hdfs_load.sh` một lần.
 
@@ -50,19 +50,19 @@ Lưu ý: dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1
 
 - Output của `hdfs_load.sh`, đặc biệt dòng `622.2 M` và dòng `HEALTHY`.
 - UI 9870, Utilities > Browse the file system > `/data/sparkov`: thấy hai file, cột Block Size 128 MB, Replication 2.
-- Bấm vào `fraudTrain.csv` để thấy danh sách block (335 MB nên có 3 block).
+- Bấm vào `fraudTrain.csv` để thấy danh sách block (335 MB nên có 3 block: 128 + 128 + 79 MB), mỗi block có bản trên cả `datanode` và `datanode2`.
 
 ### Chịu lỗi: `scripts/hdfs_fault_demo.sh`
 
-HDFS có 2 datanode, replication 2: mỗi block nằm trên cả hai node. Script tắt `datanode2`, chờ khoảng 100 giây (`hadoop.env` đặt `dfs.namenode.heartbeat.recheck-interval=30000` nên namenode đánh dấu node chết sau khoảng 90 giây thay vì 10 phút), rồi chứng minh:
+HDFS có 2 datanode, replication 2: mỗi block nằm trên cả hai node. Script tắt `datanode2`, chờ khoảng 100 giây (`hadoop.env` đặt `dfs.namenode.heartbeat.recheck-interval=30000` ; thời gian để namenode coi một node là chết bằng 2 × recheck-interval + 10 × heartbeat interval (3 giây), tức 2 × 30 + 10 × 3 = 90 giây, thay vì khoảng 10,5 phút với recheck-interval mặc định 5 phút), rồi kiểm tra:
 
 - `dfsadmin -report`: `Live datanodes (1)`, `Dead datanodes (1)`;
 - `hdfs dfs -cat` vẫn đọc được file;
-- `fsck`: `Status: HEALTHY`, `Under-replicated blocks: 100%`, `Missing blocks: 0`.
+- `fsck`: `Status: HEALTHY`, `Under-replicated blocks` là toàn bộ số block (100%), `Missing blocks: 0`.
 
-Cuối cùng script bật lại `datanode2`, namenode tự sao chép lại các block thiếu bản.
+Trong lúc chỉ còn một datanode, namenode không tạo được bản thứ hai vì không còn node nào khác để đặt. Cuối cùng script bật lại `datanode2`; node này gửi block report, namenode ghi nhận lại các bản sao trên đó và số block under-replicated về 0.
 
-Dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1`, `hdfs-data2`, nên `down` không còn làm mất dữ liệu. Các container HDFS chạy bằng root vì Docker tạo volume thuộc quyền root, còn user `hadoop` (uid 1000) trong image không ghi được.
+Các container HDFS chạy bằng root vì Docker tạo volume thuộc quyền root, còn user `hadoop` (uid 1000) trong image không ghi được.
 
 ## 4. Cụm Spark
 
@@ -80,7 +80,7 @@ Dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1`, `hdfs-
 | `--master` | `spark://spark-master:7077` | Chạy trên cụm, không chạy local |
 | `--driver-memory` | `2g` | Driver giữ histogram, ma trận nhầm lẫn và 30 mẫu, không cần nhiều |
 | `--executor-memory` | `2560m` | Vừa trong 3 GB của worker |
-| `spark.executor.cores` | `4` | Dùng hết 4 core của worker |
+| `spark.executor.cores` | `4` | Dùng hết 4 core của worker, nên cụm chạy một executor 4 core |
 | `spark.sql.session.timeZone` | `UTC` | Thời gian trong CSV được đọc nguyên văn, khớp với API |
 | `--py-files` | `behavior_features.py`, `behavior_features_spark.py` | Executor cũng cần import hai module này |
 
@@ -103,7 +103,7 @@ Chế độ `behavior` nhận thêm ba tham số tùy chọn theo thứ tự: th
 ### Thí nghiệm mở rộng
 
 ```bash
-bash scripts/train_on_cluster.sh scale                         # nhân Sparkov 8 bản trên HDFS (CSV + Parquet, replication 1)
+bash scripts/train_on_cluster.sh scale                         # nhân Sparkov 8 bản vào /data/scale (CSV + Parquet, replication 1)
 bash scripts/run_scale_benchmark.sh 2>&1 | tee scale_run.log   # 10 lần chạy, khoảng 75 phút
 docker compose -f docker-compose.bigdata.yml exec -T -u "$(id -u):$(id -g)" -e MPLCONFIGDIR=/tmp -w /workspace \
   spark-master python3 scripts/plot_scale.py                   # 3 biểu đồ 6-8 và bảng Markdown
@@ -124,7 +124,7 @@ Kết quả và nhận xét: `REPORT_NOTES.md` mục 7b.
 | Ma trận nhầm lẫn, PR-AUC, ROC-AUC | Executor, vài con số về driver |
 | Chọn ngưỡng theo F1 | Driver, trên 1.000 dòng histogram |
 | Lấy 30 mẫu đối chiếu | Executor lọc, 30 dòng về driver |
-| Ghi mô hình | Driver điều phối, ghi vào `/workspace` |
+| Ghi mô hình | Driver điều phối, executor ghi các file của `PipelineModel` (JSON, Parquet) vào `/workspace`. Ghi được vì master và worker mount cùng thư mục dự án. `behavior_metadata.json` và các file số liệu do driver ghi bằng Python. |
 
 Không có bước nào gom toàn bộ dữ liệu về Python. Đây là điểm cần nói khi hội đồng hỏi "Big Data ở đâu".
 
