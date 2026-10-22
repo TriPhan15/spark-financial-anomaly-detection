@@ -106,17 +106,44 @@ Kiểm thử end-to-end (`scripts/e2e_check.py`, 13/13 PASS):
 | Tiêu chí (điểm) | Bằng chứng trong repo |
 |---|---|
 | CLO1 Tính ứng dụng (1,0) | Cảnh báo thật trên app với feature app có; thí nghiệm điền 0 chứng minh vì sao cần Model B; câu giải thích dễ hiểu cho người dùng |
-| CLO2 Lưu trữ và xử lý (2,0) | HDFS thật (`hdfs_load.sh`, fsck HEALTHY); Spark đọc `hdfs://`; Window functions trên 1,85 triệu dòng; class weights; EDA bằng groupBy trên cụm |
+| CLO2 Lưu trữ và xử lý (2,0) | HDFS thật 2 datanode, replication 2, demo tắt 1 datanode vẫn đọc được (`hdfs_fault_demo.sh`); Spark đọc `hdfs://`; Window functions trên 1,85 triệu dòng, thí nghiệm mở rộng tới 14,8 triệu dòng / 4,08 GB; CSV so với Parquet; class weights; EDA bằng groupBy trên cụm |
 | CLO3 Mô hình/công nghệ (2,5) | 2 bài toán, 3 cách tiếp cận (RF, GBT, luật); chia theo thời gian; chọn ngưỡng trên validation; đủ Precision, Recall, F1, PR-AUC, ROC-AUC, confusion matrix, feature importance |
-| CLO3 Trực quan hóa/ứng dụng (2,5) | Notebook có 5 biểu đồ; Swagger `/docs`; dialog trên app; 2 sơ đồ kiến trúc tương tác (`docs/architecture/*.html`) |
+| CLO3 Trực quan hóa/ứng dụng (2,5) | Notebook có 5 biểu đồ, thêm 3 biểu đồ mở rộng (`artifacts/charts/6-8`); Swagger `/docs`; dialog trên app; 2 sơ đồ kiến trúc tương tác (`docs/architecture/*.html`) |
 | CLO4 Trình bày báo cáo (1,0) | Tài liệu này, README, spec thiết kế, số liệu chạy lại được |
 | CLO5 Làm việc nhóm (1,0) | Nhóm tự bổ sung phụ lục phân công (Spark, dữ liệu, API, Flutter) |
+
+## 7b. Thí nghiệm mở rộng (`artifacts/scale/results.jsonl`, chạy 17/10/2026)
+
+Mục đích: trả lời thẳng câu hỏi "622 MB có phải Big Data không" bằng số đo thay vì lời nói. `scale_data.py` nhân Sparkov thành 8 bản trên HDFS (mỗi bản là một nhóm chủ thẻ mới: `cc_num` băm bằng `xxhash64`, `trans_num` thêm hậu tố), lưu cả CSV và Parquet, phân vùng theo `copy=N`. `benchmark_scale.py` đọc k bản đầu và chạy toàn bộ bước tính 7 đặc trưng hành vi bằng hàm cửa sổ tới cuối (`noop` sink, không gom dữ liệu về driver).
+
+Kích thước 8 bản: 14.819.152 dòng; CSV 4,08 GB; Parquet 1,20 GB (nhỏ hơn 3,4 lần).
+
+| Định dạng | Số bản | Core | Số dòng | Dung lượng (GB) | Đọc (s) | Đặc trưng (s) | Tổng (s) | Dòng/giây |
+|---|---|---|---|---|---|---|---|---|
+| CSV | 1 | 4 | 1.852.394 | 0,50 | 9,4 | 85,1 | 95,1 | 19.478 |
+| CSV | 2 | 4 | 3.704.788 | 1,01 | 10,9 | 235,6 | 247,0 | 14.999 |
+| CSV | 4 | 4 | 7.409.576 | 2,03 | 15,5 | 341,3 | 357,5 | 20.726 |
+| CSV | 8 | 4 | 14.819.152 | 4,08 | 23,5 | 590,0 | 614,2 | 24.128 |
+| CSV | 4 | 1 | 7.409.576 | 2,03 | 35,6 | 1117,0 | 1153,2 | 6.425 |
+| CSV | 4 | 2 | 7.409.576 | 2,03 | 22,7 | 580,5 | 603,7 | 12.274 |
+| Parquet | 1 | 4 | 1.852.394 | 0,15 | 8,0 | 81,1 | 89,7 | 20.651 |
+| Parquet | 2 | 4 | 3.704.788 | 0,30 | 9,5 | 216,1 | 226,1 | 16.386 |
+| Parquet | 4 | 4 | 7.409.576 | 0,60 | 9,3 | 328,1 | 338,0 | 21.922 |
+| Parquet | 8 | 4 | 14.819.152 | 1,20 | 11,0 | 554,7 | 566,3 | 26.168 |
+
+Nhận xét:
+
+- **Khối lượng:** dữ liệu tăng 8 lần (0,5 → 4,08 GB) thì tổng thời gian tăng 6,5 lần (95 → 614 s). Thông lượng không giảm mà tăng từ khoảng 19,5 nghìn lên 24,1 nghìn dòng/giây, vì chi phí cố định (khởi động job, lập lịch) được chia cho nhiều dữ liệu hơn. Mốc 2 bản chậm hơn đường tuyến tính (235,6 s so với khoảng 170 s), có thể do số partition và việc tràn bộ nhớ ra đĩa; từ 4 bản trở đi đường thực tế nằm dưới đường tuyến tính.
+- **Song song hóa:** cùng 7,4 triệu dòng, 1 → 2 → 4 core cho thời gian 1153 → 604 → 358 s, tăng tốc 1,91 và 3,23 lần. Hiệu suất 4 core khoảng 81%, phần còn lại là shuffle và đọc HDFS.
+- **Định dạng:** Parquet nhỏ hơn CSV 3,4 lần trên HDFS, đọc nhanh hơn 2,1 lần ở mốc 8 bản (11,0 so với 23,5 s), tổng nhanh hơn khoảng 8%, vì bước tính cửa sổ (sort theo chủ thẻ và thời gian) chiếm phần lớn thời gian.
+- Biểu đồ: `artifacts/charts/6_scale_volume.png`, `7_csv_vs_parquet.png`, `8_scale_cores.png`.
 
 ## 8. Giới hạn (nên nêu chủ động trong báo cáo)
 
 - Sparkov là dữ liệu **mô phỏng**, vì dữ liệu chi tiêu cá nhân có nhãn không được công khai. Thói quen của người dùng Việt Nam có thể khác.
 - Nhãn "fraud" của Sparkov được diễn giải trên app là "chi tiêu lệch khỏi thói quen". Hóa đơn do chính người dùng quét hiếm khi là gian lận theo nghĩa đen.
-- HDFS có 1 datanode (replication 1) vì chạy trên một máy. Kiến trúc giữ nguyên khi thêm datanode.
+- HDFS có 2 datanode (replication 2) và Spark 1 worker, nhưng tất cả vẫn chạy trên **một máy vật lý** bằng Docker, nên chưa đo được mạng giữa các máy thật.
+- 622 MB dữ liệu gốc là khiêm tốn so với quy mô công nghiệp (hàng trăm GB trở lên). Thí nghiệm mở rộng dùng dữ liệu **nhân bản** (người dùng mới, cùng hành vi), chỉ để đo thời gian, không dùng để báo cáo độ chính xác.
 - Ánh xạ danh mục tiếng Việt sang Sparkov dùng từ khóa; danh mục không khớp được xếp vào `misc_pos`.
 
 ## 9. Câu hỏi hội đồng có thể hỏi

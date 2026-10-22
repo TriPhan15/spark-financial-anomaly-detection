@@ -15,13 +15,13 @@ docker compose -f docker-compose.bigdata.yml up -d --build
 docker compose -f docker-compose.bigdata.yml ps
 ```
 
-Lệnh `up` không kèm `--profile api` chỉ bật bốn service: `namenode`, `datanode`, `spark-master`, `spark-worker`. Lần đầu sẽ build image `bigdata-spark:4.0.1`.
+Lệnh `up` không kèm `--profile api` bật năm service: `namenode`, `datanode`, `datanode2`, `spark-master`, `spark-worker`. Chạy `bash scripts/preflight.sh` trước để chắc chắn ba file CSV có trong `data/`. Lần đầu sẽ build image `bigdata-spark:4.0.1`.
 
 Kiểm tra:
 
 | Địa chỉ | Phải thấy |
 |---|---|
-| http://localhost:9870 | Trang namenode, mục Datanodes có 1 node "In service" |
+| http://localhost:9870 | Trang namenode, mục Datanodes có 2 node "In service" |
 | http://localhost:8080 | Spark master, mục Workers có 1 worker, 4 core, 3.0 GiB |
 
 ## 3. Nạp dữ liệu: `scripts/hdfs_load.sh`
@@ -49,8 +49,20 @@ Lưu ý: compose không khai báo volume cho dữ liệu HDFS. `docker compose s
 ### Bằng chứng cần chụp
 
 - Output của `hdfs_load.sh`, đặc biệt dòng `622.2 M` và dòng `HEALTHY`.
-- UI 9870, Utilities > Browse the file system > `/data/sparkov`: thấy hai file, cột Block Size 128 MB, Replication 1.
+- UI 9870, Utilities > Browse the file system > `/data/sparkov`: thấy hai file, cột Block Size 128 MB, Replication 2.
 - Bấm vào `fraudTrain.csv` để thấy danh sách block (335 MB nên có 3 block).
+
+### Chịu lỗi: `scripts/hdfs_fault_demo.sh`
+
+HDFS có 2 datanode, replication 2: mỗi block nằm trên cả hai node. Script tắt `datanode2`, chờ khoảng 100 giây (`hadoop.env` đặt `dfs.namenode.heartbeat.recheck-interval=30000` nên namenode đánh dấu node chết sau khoảng 90 giây thay vì 10 phút), rồi chứng minh:
+
+- `dfsadmin -report`: `Live datanodes (1)`, `Dead datanodes (1)`;
+- `hdfs dfs -cat` vẫn đọc được file;
+- `fsck`: `Status: HEALTHY`, `Under-replicated blocks: 100%`, `Missing blocks: 0`.
+
+Cuối cùng script bật lại `datanode2`, namenode tự sao chép lại các block thiếu bản.
+
+Dữ liệu HDFS nằm trong các named volume `hdfs-name`, `hdfs-data1`, `hdfs-data2`, nên `down` không còn làm mất dữ liệu. Các container HDFS chạy bằng root vì Docker tạo volume thuộc quyền root, còn user `hadoop` (uid 1000) trong image không ghi được.
 
 ## 4. Cụm Spark
 
@@ -88,6 +100,17 @@ Chế độ `behavior` nhận thêm ba tham số tùy chọn theo thứ tự: th
 - http://localhost:8080: mục Running Applications có `BehaviorAnomalyTraining` khi job đang chạy, Completed Applications sau khi xong.
 - http://localhost:4040: UI của application đang chạy. Tab Jobs và Stages cho thấy các bước đọc HDFS, shuffle theo `cc_num` của hàm cửa sổ, các vòng huấn luyện GBT. Tab Storage cho thấy DataFrame feature đang được cache.
 
+### Thí nghiệm mở rộng
+
+```bash
+bash scripts/train_on_cluster.sh scale                         # nhân Sparkov 8 bản trên HDFS (CSV + Parquet, replication 1)
+bash scripts/run_scale_benchmark.sh 2>&1 | tee scale_run.log   # 10 lần chạy, khoảng 75 phút
+docker compose -f docker-compose.bigdata.yml exec -T -u "$(id -u):$(id -g)" -e MPLCONFIGDIR=/tmp -w /workspace \
+  spark-master python3 scripts/plot_scale.py                   # 3 biểu đồ 6-8 và bảng Markdown
+```
+
+Kết quả và nhận xét: `REPORT_NOTES.md` mục 7b.
+
 ## 5. Những gì chạy trên cụm và những gì về driver
 
 | Việc | Chạy ở |
@@ -121,7 +144,8 @@ Notebook đọc lại dữ liệu từ HDFS, dùng chính `build_features` của
 ```bash
 docker compose -f docker-compose.bigdata.yml stop spark-master spark-worker   # nhả cổng 8080 cho core-backend
 docker compose -f docker-compose.bigdata.yml stop                             # tắt hết, giữ dữ liệu HDFS
-docker compose -f docker-compose.bigdata.yml down                             # xóa container, mất dữ liệu HDFS
+docker compose -f docker-compose.bigdata.yml down                             # xóa container, dữ liệu HDFS vẫn còn trong volume
+docker compose -f docker-compose.bigdata.yml down -v                          # xóa luôn volume, mất dữ liệu HDFS
 ```
 
 ## 8. Sự cố hay gặp
