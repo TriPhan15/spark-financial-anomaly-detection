@@ -114,7 +114,7 @@ Khối Big Data chạy độc lập bằng `docker-compose.bigdata.yml`. Nó kh�
 | `mobile-app/` | Flutter, Dio | | Ứng dụng người dùng |
 | `core-backend/` | Spring Boot, PostgreSQL, Redis | 8080 | Nguồn dữ liệu giao dịch, ngân sách, thanh toán |
 | `ai-service/` | FastAPI | 8000 | OCR hóa đơn (DONUT), phân tích chi tiêu (SPADE) |
-| `BigData/BigData/` | HDFS, Spark, FastAPI | 8001 | Huấn luyện và phục vụ mô hình bất thường |
+| `BigData/` | HDFS, Spark, FastAPI | 8001 | Huấn luyện và phục vụ mô hình bất thường |
 | HDFS UI, Spark UI | | 9870, 8080 | Chụp bằng chứng cho báo cáo |
 
 Lưu ý khi chạy chung một máy: Spark master và core-backend cùng muốn cổng 8080. Khi demo trên máy cá nhân, chỉ bật `fraud-api` (profile `api`), không bật cả cụm Spark.
@@ -198,7 +198,7 @@ Barem là rubric chung, thang 10, 6 tiêu chí. Đồ án chấm hai giai đoạ
 
 ## 6. Cách chạy lại hệ thống
 
-Chạy từ thư mục `BigData/BigData`. Trên Git Bash cho Windows, thêm `MSYS_NO_PATHCONV=1` trước các script.
+Chạy từ thư mục `BigData`. Trên Git Bash cho Windows, thêm `MSYS_NO_PATHCONV=1` trước các script.
 
 ```bash
 # 1. HDFS và Spark (cần khoảng 8 GB RAM)
@@ -224,7 +224,7 @@ Chạy ứng dụng trên điện thoại Android:
 ```bash
 adb reverse tcp:8080 tcp:8080
 adb reverse tcp:8001 tcp:8001
-cd ../../mobile-app    # từ BigData/BigData
+cd ../../mobile-app    # từ BigData
 flutter run --dart-define=API_BASE=http://localhost:8080 --dart-define=FRAUD_API_URL=http://localhost:8001
 ```
 
@@ -294,13 +294,13 @@ Nêu thẳng những điều này khi hội đồng hỏi, đừng để họ ph
 
 | Muốn tìm | Mở |
 |---|---|
-| Đặc trưng khi huấn luyện (Spark) | `BigData/BigData/behavior_features_spark.py` |
-| Đặc trưng khi phục vụ (Python), luật chặn, lời giải thích | `BigData/BigData/behavior_features.py` |
-| Huấn luyện mô hình B | `BigData/BigData/train_behavior.py` |
-| Huấn luyện mô hình A, thí nghiệm điền 0 | `BigData/BigData/train_pipeline.py` |
-| API mô hình B | `BigData/BigData/behavior_api.py` |
-| Kiểm thử đầu cuối của API | `BigData/BigData/scripts/e2e_check.py` |
-| Số liệu để chép vào báo cáo | `BigData/BigData/docs/REPORT_NOTES.md` |
+| Đặc trưng khi huấn luyện (Spark) | `BigData/behavior_features_spark.py` |
+| Đặc trưng khi phục vụ (Python), luật chặn, lời giải thích | `BigData/behavior_features.py` |
+| Huấn luyện mô hình B | `BigData/train_behavior.py` |
+| Huấn luyện mô hình A, thí nghiệm điền 0 | `BigData/train_pipeline.py` |
+| API mô hình B | `BigData/behavior_api.py` |
+| Kiểm thử đầu cuối của API | `BigData/scripts/e2e_check.py` |
+| Số liệu để chép vào báo cáo | `BigData/docs/REPORT_NOTES.md` |
 | Sơ đồ kiến trúc và luồng dữ liệu | `docs/architecture/*.html` |
 | Dịch vụ gọi API từ app | `mobile-app/lib/services/anomaly_check_service.dart` |
 | Hộp thoại cảnh báo dùng chung | `mobile-app/lib/widgets/dialogs/anomaly_warning_dialog.dart` |

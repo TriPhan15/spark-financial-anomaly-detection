@@ -21,7 +21,7 @@ Model A cannot score receipts: the app has no V1..V28. `train_pipeline.py --zero
 Prerequisites: Docker with about 8 GB of memory, the CSV files in `data/fraudTrain.csv`, `data/fraudTest.csv` and `creditcard.csv` (Kaggle downloads, not committed). On Git Bash for Windows, prefix the scripts with `MSYS_NO_PATHCONV=1`.
 
 ```bash
-cd BigData/BigData
+cd BigData
 docker compose -f docker-compose.bigdata.yml up -d --build   # namenode, datanode, spark-master, spark-worker
 bash scripts/hdfs_load.sh                                   # put the CSVs into hdfs:///data, print listing + fsck
 bash scripts/train_on_cluster.sh behavior                   # Model B (about 6 minutes)

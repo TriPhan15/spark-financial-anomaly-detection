@@ -8,7 +8,7 @@
 
 ## 2. Khởi động
 
-Chạy từ `BigData/BigData/`:
+Chạy từ `BigData/`:
 
 ```bash
 docker compose -f docker-compose.bigdata.yml up -d --build

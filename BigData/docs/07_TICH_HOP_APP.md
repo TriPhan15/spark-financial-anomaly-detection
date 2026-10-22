@@ -168,7 +168,7 @@ Trên máy ảo Android dùng `10.0.2.2` thay cho `localhost`. Trên điện tho
 Tài khoản mới chưa có lịch sử nên sẽ không bao giờ bị cảnh báo. Tạo lịch sử bằng:
 
 ```bash
-python BigData/BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>
+python BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>
 ```
 
 Script đăng nhập rồi tạo khoảng 30 ngày chi tiêu thói quen (ăn trưa 40 đến 70 nghìn, đi chợ cuối tuần 280 đến 320 nghìn, đổ xăng mỗi tuần) và 3 khoản bất thường (mua sắm 2,4 triệu lúc 23:45, tiệc nhà hàng 1,5 triệu, hóa đơn 3 triệu lúc 2:30). Nó tạo giao dịch thật qua `POST /api/transactions/checkout` và trừ số dư ví, nên chỉ dùng cho tài khoản demo.

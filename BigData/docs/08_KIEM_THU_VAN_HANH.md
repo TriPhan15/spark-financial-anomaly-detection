@@ -90,12 +90,12 @@ Thứ tự đã dùng được khi server deploy không truy cập được.
 2. `docker compose up -d db redis`, rồi `docker compose up -d --no-deps core-api`. Không bật `data-mining-api` nếu máy thiếu trọng số DONUT, nó sẽ crash.
 3. Nếu đăng ký tài khoản báo trùng khóa chính (`users_pkey`), các sequence PostgreSQL đang đứng sau id của dữ liệu seed. Đặt lại sequence bằng `setval`.
 4. Đăng ký tài khoản demo, nạp số dư ví đủ lớn để thanh toán (checkout trừ ví).
-5. `python BigData/BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>`.
+5. `python BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>`.
 
 ### 5.2 API Big Data
 
 ```bash
-cd BigData/BigData
+cd BigData
 docker compose -f docker-compose.bigdata.yml --profile api up -d --build fraud-api
 curl http://127.0.0.1:8001/health
 ```
@@ -124,7 +124,7 @@ Bản debug cần cho phép HTTP không mã hóa (`usesCleartextTraffic` trong m
 | Màn hình nghi vấn báo "Chưa kiểm tra được" | API tắt, sai địa chỉ, quá 10 giây | Kiểm tra `adb reverse tcp:8001` và `FRAUD_API_URL` |
 | Màn hình nghi vấn báo "Chưa đủ dữ liệu" | Tài khoản dưới 6 khoản chi | Chạy `seed_demo_history.py` |
 | `e2e_check.py` báo lỗi mã hóa khi in | Console Windows dùng cp1252 | Chạy với `python -X utf8` |
-| `e2e_check.py` FAIL ở check Model A | Thiếu `creditcard.csv` trong `BigData/BigData` | Tải từ Kaggle |
+| `e2e_check.py` FAIL ở check Model A | Thiếu `creditcard.csv` trong `BigData` | Tải từ Kaggle |
 | Spark master không lên | Cổng 8080 đang bị core-backend dùng | Tắt một trong hai |
 
 ## 7. Danh sách kiểm tra trước buổi bảo vệ

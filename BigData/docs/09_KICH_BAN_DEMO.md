@@ -26,7 +26,7 @@ Quay thành hai phần vì Spark master và core-backend cùng dùng cổng 8080
 Phần A:
 
 ```bash
-cd BigData/BigData
+cd BigData
 ls data/fraudTrain.csv data/fraudTest.csv creditcard.csv      # phải có đủ 3 file
 docker compose -f docker-compose.bigdata.yml up -d --build    # chạy trước một lần cho image sẵn
 ```
@@ -43,11 +43,11 @@ docker compose up -d db redis && docker compose up -d --no-deps core-api
 ```
 
 - Tạo một tài khoản demo mới, nạp số dư ví đủ lớn (khoảng 50 triệu; trên môi trường cục bộ có thể đặt thẳng cột `wallet_balance` trong PostgreSQL), vì mỗi khoản chi được lưu qua checkout sẽ trừ ví. Rồi chạy đúng một lần:
-  `python BigData/BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>`.
+  `python BigData/scripts/seed_demo_history.py --base-url http://localhost:8080 --email <email> --password <mật khẩu>`.
   Script phải in `Created 41/41 transactions`. Không chạy hai lần, vì lịch sử sẽ khác với dự tính trong kịch bản.
 - Điện thoại: `adb reverse tcp:8080 tcp:8080`, `adb reverse tcp:8001 tcp:8001`, rồi `flutter run --dart-define=API_BASE=http://localhost:8080 --dart-define=FRAUD_API_URL=http://localhost:8001`. Đăng nhập tài khoản demo.
 - Trong máy điện thoại có sẵn một ảnh hóa đơn bất kỳ trong thư viện ảnh.
-- Mở sẵn http://localhost:8001/docs và thư mục `BigData/BigData/docs/demo/` trong VS Code.
+- Mở sẵn http://localhost:8001/docs và thư mục `BigData/docs/demo/` trong VS Code.
 
 Kiểm tra nhanh trước khi quay phần B:
 
@@ -72,7 +72,7 @@ Thao tác: rê chuột theo luồng từ trái sang phải: CSV, HDFS, Spark, m�
 Thao tác:
 
 ```bash
-cd BigData/BigData
+cd BigData
 docker compose -f docker-compose.bigdata.yml up -d
 docker compose -f docker-compose.bigdata.yml ps
 ```

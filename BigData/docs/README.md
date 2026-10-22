@@ -1,6 +1,6 @@
 # Tài liệu phần Big Data
 
-Thư mục này mô tả module phát hiện chi tiêu bất thường của DonutPay: dữ liệu lên HDFS, Spark huấn luyện mô hình, API phục vụ mô hình, và ứng dụng Flutter hiển thị cảnh báo. Mọi đường dẫn file trong các tài liệu tính từ thư mục `BigData/BigData/`, trừ khi ghi rõ là từ gốc repo.
+Thư mục này mô tả module phát hiện chi tiêu bất thường của DonutPay: dữ liệu lên HDFS, Spark huấn luyện mô hình, API phục vụ mô hình, và ứng dụng Flutter hiển thị cảnh báo. Mọi đường dẫn file trong các tài liệu tính từ thư mục `BigData/`, trừ khi ghi rõ là từ gốc repo.
 
 ## Đọc theo thứ tự nào
 

@@ -130,7 +130,7 @@ Giao dịch mới: 600.000 đồng, Ăn uống, thứ Ba 06/10/2026 12:30.
 
 Có 6 giao dịch trước đó, đủ ngưỡng 5, nên giao dịch được chấm. Nếu bị gắn cờ, câu giải thích là "Số tiền gấp 12,0 lần mức chi trung bình của bạn cho danh mục này." Luật chặn thói quen không kích hoạt vì `amt_ratio_user` chỉ 6,55, dưới 10 (luật cần cả hai tỉ lệ từ 10 trở lên).
 
-Có thể tự kiểm tra bằng Python từ thư mục `BigData/BigData`:
+Có thể tự kiểm tra bằng Python từ thư mục `BigData`:
 
 ```python
 from datetime import datetime

@@ -9,7 +9,7 @@
 #   L4  screens: manual entry, edit, receipt scan with the pencil           (flagged expenses)
 #   L5  the normal path                                                    (runs inside l4_screen_flows_test.dart)
 #
-# Needs: docker compose -f BigData/BigData/docker-compose.bigdata.yml --profile api up -d --build fraud-api
+# Needs: docker compose -f BigData/docker-compose.bigdata.yml --profile api up -d --build fraud-api
 # Run from mobile-app/:  bash test/bigdata_cases/run_in_order.sh
 set -u
 API="${FRAUD_API_URL:-http://127.0.0.1:8001}"
@@ -20,7 +20,7 @@ fail() { printf '\nSTOP: %s failed, the levels above it are not run.\n' "$1"; ex
 
 step "L0 API health and its end-to-end check"
 curl -sf "$API/health" | grep -q '"behaviorModelLoaded":true' || fail "L0 (API not up or model not loaded at $API)"
-python -X utf8 "$ROOT/BigData/BigData/scripts/e2e_check.py" --base-url "$API" | tail -3 | grep -q "passed" || fail "L0 e2e_check"
+python -X utf8 "$ROOT/BigData/scripts/e2e_check.py" --base-url "$API" | tail -3 | grep -q "passed" || fail "L0 e2e_check"
 
 for level in l1_failure_modes l2_data_contract l3_model_behavior l4_screen_flows; do
   step "$level"

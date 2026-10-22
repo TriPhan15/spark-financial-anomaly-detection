@@ -5,7 +5,7 @@ FastAPI, cổng 8001. Code: `main.py` (app, `/health`, `/predict-fraud`, nạp m
 ## 1. Chạy
 
 ```bash
-cd BigData/BigData
+cd BigData
 docker compose -f docker-compose.bigdata.yml --profile api up -d --build fraud-api
 curl http://127.0.0.1:8001/health
 ```
@@ -102,7 +102,7 @@ Các file nằm trong `docs/demo/`, cùng một lịch sử 39 giao dịch (bữ
 | `03_khai_khong_bua_trua.json` | 5.000.000, Ăn uống, 12:15 | `isAnomaly: true`, `riskScore: 0.019388`, `flaggedBy: "rule"`, "Số tiền gấp 98,0 lần mức chi trung bình của bạn cho danh mục này." |
 | `04_cold_start.json` | 5.000.000, Ăn uống, chỉ 4 giao dịch lịch sử | `scored: false`, `reason: "insufficient_history"` |
 
-Gửi bằng curl (từ `BigData/BigData`):
+Gửi bằng curl (từ `BigData`):
 
 ```bash
 curl -s -X POST http://127.0.0.1:8001/v2/predict-anomaly \

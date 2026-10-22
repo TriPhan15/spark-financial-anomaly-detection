@@ -153,7 +153,7 @@ Các phép `groupBy` của notebook chạy trên Spark, chỉ bảng tổng hợ
 ## 4. Huấn luyện lại
 
 ```bash
-cd BigData/BigData
+cd BigData
 docker compose -f docker-compose.bigdata.yml up -d --build
 MSYS_NO_PATHCONV=1 bash scripts/hdfs_load.sh
 MSYS_NO_PATHCONV=1 bash scripts/train_on_cluster.sh behavior

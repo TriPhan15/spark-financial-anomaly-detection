@@ -88,10 +88,10 @@ File `hadoop.env` (được commit vì không chứa bí mật):
 | `dfs.permissions.enabled` | `false` | Bỏ kiểm tra quyền cho môi trường học tập |
 | `dfs.blocksize` | `134217728` | Block 128 MB |
 
-## 4. Thư mục `BigData/BigData/`
+## 4. Thư mục `BigData/`
 
 ```text
-BigData/BigData/
+BigData/
 ├── docker-compose.bigdata.yml   # HDFS + Spark + API
 ├── hadoop.env                   # cấu hình HDFS
 ├── Dockerfile                   # image fraud-api
