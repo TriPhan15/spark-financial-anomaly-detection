@@ -2,6 +2,7 @@
 # Runs the Spark training jobs on the standalone cluster, reading the raw data from HDFS.
 #   scripts/train_on_cluster.sh behavior [hdfs input dir]   -> Model B (behavior anomaly)
 #   scripts/train_on_cluster.sh creditcard                  -> Model A (Kaggle benchmark + ablation)
+#   scripts/train_on_cluster.sh scale [copies]              -> replicate Sparkov for the scaling benchmark
 set -euo pipefail
 cd "$(dirname "$0")/.."
 COMPOSE="docker compose -f docker-compose.bigdata.yml"
@@ -27,8 +28,11 @@ case "${1:-behavior}" in
       --metrics-output /workspace/metrics.json \
       --zero-pca-ablation
     ;;
+  scale)
+    $COMPOSE exec -T -w /workspace spark-master "${SUBMIT[@]}" /workspace/scale_data.py --copies "${2:-8}"
+    ;;
   *)
-    echo "usage: $0 behavior|creditcard" >&2
+    echo "usage: $0 behavior|creditcard|scale" >&2
     exit 2
     ;;
 esac

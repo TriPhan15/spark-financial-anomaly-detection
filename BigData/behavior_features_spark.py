@@ -48,12 +48,15 @@ SPARKOV_SCHEMA = StructType(
 )
 
 
-def read_sparkov(spark, path: str, source: str) -> DataFrame:
+def read_sparkov(spark, path: str | list[str], source: str, fmt: str = "csv") -> DataFrame:
+    """Reads Sparkov rows from one path or several (the scaled copies), as CSV or Parquet."""
+    paths = [path] if isinstance(path, str) else list(path)
+    if fmt == "parquet":
+        frame = spark.read.parquet(*paths)
+    else:
+        frame = spark.read.option("header", True).schema(SPARKOV_SCHEMA).csv(paths)
     return (
-        spark.read.option("header", True)
-        .schema(SPARKOV_SCHEMA)
-        .csv(path)
-        .select(
+        frame.select(
             "trans_date_trans_time",
             "cc_num",
             "category",
